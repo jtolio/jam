@@ -1,25 +1,28 @@
 package enc
 
 import (
+	"bytes"
 	"context"
-	"fmt"
 	"io"
+	"io/ioutil"
 
 	"github.com/jtolds/jam/backends"
 )
 
 // EncWrapper wraps a Backend with encryption.
 type EncWrapper struct {
-	enc     Encrypter
+	enc     Codec
+	keyGen  KeyGenerator
 	backend backends.Backend
 }
 
 var _ backends.Backend = (*EncWrapper)(nil)
 
 // NewEncWrapper returns a new Backend with the provided encryption
-func NewEncWrapper(enc Encrypter, backend backends.Backend) *EncWrapper {
+func NewEncWrapper(encryption Codec, keyGen KeyGenerator, backend backends.Backend) *EncWrapper {
 	return &EncWrapper{
-		enc:     enc,
+		enc:     encryption,
+		keyGen:  keyGen,
 		backend: backend,
 	}
 }
@@ -27,13 +30,51 @@ func NewEncWrapper(enc Encrypter, backend backends.Backend) *EncWrapper {
 // Get implements the Backend interface
 func (e *EncWrapper) Get(ctx context.Context, path string, offset int64) (io.ReadCloser, error) {
 	// See implementation note in List
-	return nil, fmt.Errorf("unimplemented")
+
+	// calculate how much back we have to get to get the block that contains the requested offset
+	decodedBlockSize := int64(e.enc.DecodedBlockSize())
+	encodedBlockSize := int64(e.enc.EncodedBlockSize())
+	firstBlock := offset / decodedBlockSize
+	fh, err := e.backend.Get(ctx, path, firstBlock*encodedBlockSize)
+	if err != nil {
+		return nil, err
+	}
+
+	// Implementation note:
+	// Keys are always the same for the same path. There is normally a huge risk of nonce reuse
+	// in this scenario except it is guaranteed that for backends, a given path will always
+	// have the exact same data, and deletion is forever.
+	key := e.keyGen.KeyForPath(path)
+	r := DecodeReader(fh, e.enc, &key, firstBlock)
+
+	// we had to rewind to get the enclosing block beginning. now fast forward to skip the
+	// initial block bytes.
+	if skip := offset - firstBlock*decodedBlockSize; skip > 0 {
+		_, err = io.CopyN(ioutil.Discard, r, skip)
+		if err != nil {
+			fh.Close()
+			if err == io.EOF {
+				return ioutil.NopCloser(bytes.NewReader(nil)), nil
+			}
+			return nil, err
+		}
+	}
+
+	return struct {
+		io.Reader
+		io.Closer
+	}{
+		Reader: r,
+		Closer: fh,
+	}, nil
 }
 
 // Put implements the Backend interface
 func (e *EncWrapper) Put(ctx context.Context, path string, data io.Reader) error {
 	// See implementation note in List
-	return fmt.Errorf("unimplemented")
+	// See implementation note in Get
+	key := e.keyGen.KeyForPath(path)
+	return e.backend.Put(ctx, path, EncodeReader(data, e.enc, &key, 0))
 }
 
 // Delete implements the Backend interface
