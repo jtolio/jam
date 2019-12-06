@@ -1,0 +1,54 @@
+syntax = "proto3";
+option go_package = "manifest";
+package manifest;
+
+import "google/protobuf/timestamp.proto";
+
+message Range {
+  string blob = 1;
+  int64 offset = 2;
+  int64 length = 3;
+}
+
+message Stream {
+  repeated Range ranges = 1;
+}
+
+message Content {
+  enum Type {
+    UNKNOWN = 0;
+    FILE = 1;
+    SYMLINK = 2;
+    DIR = 3;
+  }
+
+  Type type = 1;
+
+  google.protobuf.Timestamp creation = 2;
+  google.protobuf.Timestamp modified = 3;
+  uint32 mode = 4;
+  string link_target = 5;
+
+  Stream data = 6;
+}
+
+message Entry {
+  string path = 1;
+  Content content = 2;
+}
+
+message EntrySet {
+  repeated Entry entries = 1;
+}
+
+message Page {
+  string prefix = 1;
+  oneof descendents {
+    Stream branch = 2;
+    EntrySet entries = 3;
+  }
+}
+
+message Manifest {
+  repeated Page pages = 1;
+}
