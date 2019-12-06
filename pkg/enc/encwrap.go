@@ -84,7 +84,8 @@ func (e *EncWrapper) Delete(ctx context.Context, path string) error {
 }
 
 // List implements the Backend interface
-func (e *EncWrapper) List(ctx context.Context, prefix string, cb func(path string) error) error {
+func (e *EncWrapper) List(ctx context.Context, prefix string,
+	cb func(ctx context.Context, path string) error) error {
 	// Implementation note:
 	// Jam has two levels of paths: the paths of the user's data and the paths passed
 	// to the backend. User paths are things like "music/pinkfloyd/thewall.mp3", but

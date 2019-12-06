@@ -35,5 +35,5 @@ type Backend interface {
 	// until there are no more paths to return or cb returns an error.
 	// 'prefix' will either be empty or end with a forward-slash. It is not
 	// required for List to return paths in order.
-	List(ctx context.Context, prefix string, cb func(path string) error) error
+	List(ctx context.Context, prefix string, cb func(ctx context.Context, path string) error) error
 }

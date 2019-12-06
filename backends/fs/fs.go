@@ -83,12 +83,13 @@ func (fs *FS) Delete(ctx context.Context, path string) error {
 }
 
 // List implements the Backend interface
-func (fs *FS) List(ctx context.Context, prefix string, cb func(path string) error) error {
+func (fs *FS) List(ctx context.Context, prefix string,
+	cb func(ctx context.Context, path string) error) error {
 	return filepath.Walk(filepath.Join(fs.root, prefix),
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
-			return cb(path)
+			return cb(ctx, path)
 		})
 }
