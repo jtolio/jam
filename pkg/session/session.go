@@ -7,21 +7,8 @@ import (
 
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/pkg/manifest"
+	"github.com/jtolds/jam/pkg/stream"
 )
-
-type File struct{}
-
-func (f *File) Read(p []byte) (n int, err error) {
-	panic("TODO")
-}
-
-func (f *File) Close() error {
-	panic("TODO")
-}
-
-func (f *File) Seek(offset int64, whence int) (int64, error) {
-	panic("TODO")
-}
 
 type Session struct{}
 
@@ -45,7 +32,7 @@ func (s *Session) List(ctx context.Context, prefix string, cb func(context.Conte
 	panic("TODO")
 }
 
-func (s *Session) OpenFile(ctx context.Context, path string) (*File, error) {
+func (s *Session) OpenFile(ctx context.Context, path string) (*stream.Stream, error) {
 	panic("TODO")
 }
 

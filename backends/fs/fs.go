@@ -29,7 +29,7 @@ func (fs *FS) Get(ctx context.Context, path string, offset int64) (io.ReadCloser
 		return nil, err
 	}
 	if offset > 0 {
-		_, err = fh.Seek(offset, os.SEEK_SET)
+		_, err = fh.Seek(offset, io.SeekStart)
 		if err != nil {
 			fh.Close()
 			return nil, err
