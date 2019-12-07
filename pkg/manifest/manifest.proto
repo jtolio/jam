@@ -14,7 +14,7 @@ message Stream {
   repeated Range ranges = 1;
 }
 
-message Content {
+message Metadata {
   enum Type {
     UNKNOWN = 0;
     FILE = 1;
@@ -28,8 +28,11 @@ message Content {
   google.protobuf.Timestamp modified = 3;
   uint32 mode = 4;
   string link_target = 5;
+}
 
-  Stream data = 6;
+message Content {
+  Metadata metadata = 1;
+  Stream data = 2;
 }
 
 message Entry {

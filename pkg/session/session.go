@@ -10,7 +10,8 @@ import (
 	"github.com/jtolds/jam/pkg/stream"
 )
 
-type Session struct{}
+type Session struct {
+}
 
 func (s *Session) WriteFile(ctx context.Context, path string, creation, modified time.Time, mode uint32, data io.Reader) error {
 	panic("TODO")
@@ -32,7 +33,7 @@ func (s *Session) List(ctx context.Context, prefix string, cb func(context.Conte
 	panic("TODO")
 }
 
-func (s *Session) OpenFile(ctx context.Context, path string) (*stream.Stream, error) {
+func (s *Session) OpenFile(ctx context.Context, path string) (*manifest.Metadata, *stream.Stream, error) {
 	panic("TODO")
 }
 
