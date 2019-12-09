@@ -2,6 +2,8 @@ package session
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"io"
 	"time"
 
@@ -10,7 +12,44 @@ import (
 	"github.com/jtolds/jam/pkg/stream"
 )
 
+func idGen() string {
+	var buf [32]byte
+	_, err := rand.Read(buf[:])
+	if err != nil {
+		panic(err)
+	}
+	return base64.URLEncoding.EncodeToString(string(buf[:])), nil
+}
+
 type Session struct {
+	backend backends.Backend
+	current *Concatenator
+}
+
+func newSession(backend backends.Backend) *Session {
+	s := &Session{
+		backend: backend,
+	}
+	return s
+}
+
+func uploadBlob(ctx context.Context, backend backends.Backend, c *concat.Concatenator, blobSize int64) error {
+	dest, err := c.Destination(ctx, blobSize)
+	if err != nil {
+		return err
+	}
+	name := idGen()
+	err = backend.Put(ctx, stream.BlobPrefix+name, dest)
+	if err != nil {
+		dest.Close()
+		return err
+	}
+	err = dest.Commit(name)
+	if err != nil {
+		dest.Close()
+		return err
+	}
+	return dest.Close()
 }
 
 func (s *Session) WriteFile(ctx context.Context, path string, creation, modified time.Time, mode uint32, data io.Reader) error {
@@ -34,6 +73,10 @@ func (s *Session) List(ctx context.Context, prefix string, cb func(context.Conte
 }
 
 func (s *Session) OpenFile(ctx context.Context, path string) (*manifest.Metadata, *stream.Stream, error) {
+	panic("TODO")
+}
+
+func (s *Session) Close() error {
 	panic("TODO")
 }
 
