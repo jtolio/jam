@@ -10,7 +10,6 @@ import (
 
 type Session struct {
 	backend backends.Backend
-	current *Concatenator
 }
 
 func newSession(backend backends.Backend) *Session {

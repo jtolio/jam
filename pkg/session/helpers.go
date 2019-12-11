@@ -11,5 +11,5 @@ func idGen() string {
 	if err != nil {
 		panic(err)
 	}
-	return base64.URLEncoding.EncodeToString(string(buf[:])), nil
+	return base64.URLEncoding.EncodeToString(buf[:])
 }
