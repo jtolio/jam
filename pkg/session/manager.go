@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/jtolds/jam/backends"
+	"github.com/jtolds/jam/pkg/manifest"
+	"github.com/jtolds/jam/pkg/stream"
 )
 
 type SessionManager struct {
@@ -15,18 +17,23 @@ func NewSessionManager(backend backends.Backend) *SessionManager {
 	return &SessionManager{backend: backend}
 }
 
-func (s *SessionManager) ListSessions(ctx context.Context, cb func(context.Context, time.Time) error) error {
+func (s *SessionManager) ListSnapshots(ctx context.Context, cb func(context.Context, time.Time) error) error {
 	panic("TODO")
 }
 
-func (s *SessionManager) LatestSession(ctx context.Context) (*Session, error) {
+func (s *SessionManager) LatestSnapshot(ctx context.Context) (Snapshot, error) {
 	panic("TODO")
 }
 
-func (s *SessionManager) OpenSession(ctx context.Context, timestamp time.Time) (*Session, error) {
+func (s *SessionManager) OpenSnapshot(ctx context.Context, timestamp time.Time) (Snapshot, error) {
 	panic("TODO")
 }
 
-func (s *SessionManager) NewSession(ctx context.Context) (*Mutation, error) {
+func (s *SessionManager) NewSession(ctx context.Context) (*Session, error) {
 	panic("TODO")
+}
+
+type Snapshot interface {
+	List(ctx context.Context, prefix string, cb func(context.Context, manifest.Entry) error) error
+	Open(ctx context.Context, path string) (*manifest.Metadata, *stream.Stream, error)
 }
