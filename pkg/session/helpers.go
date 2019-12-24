@@ -13,3 +13,7 @@ func idGen() string {
 	}
 	return base64.URLEncoding.EncodeToString(buf[:])
 }
+
+func blobPath(id string) string {
+	return "blob/" + id[:2] + "/" + id[2:]
+}

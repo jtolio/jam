@@ -1,6 +1,7 @@
 package session
 
 import (
+	"bufio"
 	"context"
 	"io"
 	"time"
@@ -29,14 +30,18 @@ type stagedEntry struct {
 }
 
 type Session struct {
-	backend   backends.Backend
-	staging   []*stagedEntry
-	unflushed []*stagedEntry
+	backend      backends.Backend
+	blobSize     int64
+	maxUnflushed int
+	staging      []*stagedEntry
+	unflushed    []*stagedEntry
 }
 
-func newSession(backend backends.Backend) *Session {
+func newSession(backend backends.Backend, blobSize int64, maxUnflushed int) *Session {
 	s := &Session{
-		backend: backend,
+		backend:      backend,
+		blobSize:     blobSize,
+		maxUnflushed: maxUnflushed,
 	}
 	return s
 }
@@ -80,7 +85,11 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 	s.staging = append(s.staging, entry)
 	s.unflushed = append(s.unflushed, entry)
 
-	return nil
+	if len(s.unflushed) <= s.maxUnflushed {
+		return nil
+	}
+
+	return s.Flush(ctx)
 }
 
 func (s *Session) PutDir(ctx context.Context, path string, creation, modified time.Time, mode uint32) error {
@@ -135,8 +144,35 @@ func convertTime(a, b time.Time) (*timestamp.Timestamp, *timestamp.Timestamp, er
 	return apb, bpb, nil
 }
 
-func (s *Session) Flush(ctx context.Context) error {
-	panic("TODO")
+func (s *Session) Flush(ctx context.Context) (err error) {
+	unflushed := s.unflushed
+	s.unflushed = nil
+	defer func() {
+		err = errs.Combine(err, close(unflushed))
+	}()
+
+	c := newConcat(unflushed...)
+
+	for {
+		if r.EOF() {
+			break
+		}
+		blob := bufio.NewReader(io.LimitReader(c, s.blobSize))
+		_, err = blob.Peek(1)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		err = s.backend.Put(ctx, blobPath(c.Blob()), blob)
+		if err != nil {
+			return err
+		}
+		c.Cut()
+	}
+
+	return nil
 }
 
 func (s *Session) Commit(ctx context.Context) error {
@@ -149,10 +185,18 @@ func (s *Session) Commit(ctx context.Context) error {
 
 func (s *Session) Close(ctx context.Context) error {
 	unflushed := s.unflushed
-	s.staging, s.unflushed = nil, nil
+	s.unflushed = nil
+	s.staging = nil
+	return close(unflushed)
+}
+
+func close(entries []*stagedEntry) error {
 	var group errs.Group
-	for _, entry := range unflushed {
-		group.Add(entry.source.Close())
+	for _, entry := range entries {
+		if entry.source != nil {
+			group.Add(entry.source.Close())
+			entry.source = nil
+		}
 	}
 	return group.Err()
 }

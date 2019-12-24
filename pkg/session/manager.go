@@ -9,6 +9,11 @@ import (
 	"github.com/jtolds/jam/pkg/stream"
 )
 
+type Snapshot interface {
+	List(ctx context.Context, prefix string, cb func(context.Context, manifest.Entry) error) error
+	Open(ctx context.Context, path string) (*manifest.Metadata, *stream.Stream, error)
+}
+
 type SessionManager struct {
 	backend backends.Backend
 }
@@ -31,9 +36,4 @@ func (s *SessionManager) OpenSnapshot(ctx context.Context, timestamp time.Time) 
 
 func (s *SessionManager) NewSession(ctx context.Context) (*Session, error) {
 	panic("TODO")
-}
-
-type Snapshot interface {
-	List(ctx context.Context, prefix string, cb func(context.Context, manifest.Entry) error) error
-	Open(ctx context.Context, path string) (*manifest.Metadata, *stream.Stream, error)
 }
