@@ -8,10 +8,12 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/zeebo/errs"
+
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/pkg/manifest"
+	"github.com/jtolds/jam/pkg/pathdb"
 	"github.com/jtolds/jam/pkg/stream"
-	"github.com/zeebo/errs"
 )
 
 type opType int
@@ -31,15 +33,17 @@ type stagedEntry struct {
 
 type Session struct {
 	backend      backends.Backend
+	paths        *pathdb.DB
 	blobSize     int64
 	maxUnflushed int
 	staging      []*stagedEntry
 	unflushed    []*stagedEntry
 }
 
-func newSession(backend backends.Backend, blobSize int64, maxUnflushed int) *Session {
+func newSession(backend backends.Backend, paths *pathdb.DB, blobSize int64, maxUnflushed int) *Session {
 	s := &Session{
 		backend:      backend,
+		paths:        paths,
 		blobSize:     blobSize,
 		maxUnflushed: maxUnflushed,
 	}
@@ -153,16 +157,13 @@ func (s *Session) Flush(ctx context.Context) (err error) {
 
 	c := newConcat(unflushed...)
 
-	for {
-		if r.EOF() {
-			break
-		}
+	for !c.EOF() {
 		blob := bufio.NewReader(io.LimitReader(c, s.blobSize))
 		_, err = blob.Peek(1)
-		if err == io.EOF {
-			break
-		}
 		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			return err
 		}
 		err = s.backend.Put(ctx, blobPath(c.Blob()), blob)
