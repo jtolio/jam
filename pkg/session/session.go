@@ -13,7 +13,7 @@ import (
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/pkg/manifest"
 	"github.com/jtolds/jam/pkg/pathdb"
-	"github.com/jtolds/jam/pkg/stream"
+	"github.com/jtolds/jam/pkg/streams"
 )
 
 type opType int
@@ -54,7 +54,7 @@ func (s *Session) List(ctx context.Context, prefix string, cb func(context.Conte
 	panic("TODO")
 }
 
-func (s *Session) Open(ctx context.Context, path string) (*manifest.Metadata, *stream.Stream, error) {
+func (s *Session) Open(ctx context.Context, path string) (*manifest.Metadata, *streams.Stream, error) {
 	panic("TODO")
 }
 

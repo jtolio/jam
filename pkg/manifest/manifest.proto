@@ -45,13 +45,9 @@ message EntrySet {
 }
 
 message Page {
-  string prefix = 1;
+  string sort_key = 1;
   oneof descendents {
     Stream branch = 2;
     EntrySet entries = 3;
   }
-}
-
-message Manifest {
-  repeated Page pages = 1;
 }

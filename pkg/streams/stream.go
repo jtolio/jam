@@ -1,4 +1,4 @@
-package stream
+package streams
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 type Stream struct {
 	backend       backends.Backend
-	stream        manifest.Stream
+	stream        *manifest.Stream
 	currentRange  io.ReadCloser
 	currentOffset int64
 	length        int64
@@ -21,7 +21,7 @@ type Stream struct {
 var _ io.ReadCloser = (*Stream)(nil)
 var _ io.Seeker = (*Stream)(nil)
 
-func OpenStream(ctx context.Context, backend backends.Backend, stream manifest.Stream) (*Stream, error) {
+func Open(ctx context.Context, backend backends.Backend, stream *manifest.Stream) (*Stream, error) {
 	var length int64
 	for _, r := range stream.Ranges {
 		length += r.Length

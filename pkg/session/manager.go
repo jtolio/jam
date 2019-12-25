@@ -9,8 +9,9 @@ import (
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/pkg/manifest"
 	"github.com/jtolds/jam/pkg/pathdb"
-	"github.com/jtolds/jam/pkg/stream"
+	"github.com/jtolds/jam/pkg/streams"
 	"github.com/jtolds/jam/pkg/utils"
+	"github.com/zeebo/errs"
 )
 
 const (
@@ -31,7 +32,7 @@ func pathToTimestamp(path string) (time.Time, error) {
 
 type Snapshot interface {
 	List(ctx context.Context, prefix string, cb func(context.Context, manifest.Entry) error) error
-	Open(ctx context.Context, path string) (*manifest.Metadata, *stream.Stream, error)
+	Open(ctx context.Context, path string) (*manifest.Metadata, *streams.Stream, error)
 }
 
 type SessionManager struct {
@@ -91,10 +92,19 @@ func (s *SessionManager) LatestSnapshot(ctx context.Context) (Snapshot, error) {
 }
 
 func (s *SessionManager) openSession(ctx context.Context, timestamp time.Time) (*Session, error) {
-	db, err := pathdb.Open(ctx, s.backend, timestampToPath(timestamp))
+	rc, err := s.backend.Get(ctx, timestampToPath(timestamp), 0)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		err = errs.Combine(err, rc.Close())
+	}()
+
+	db, err := pathdb.Open(ctx, s.backend, rc)
+	if err != nil {
+		return nil, err
+	}
+
 	return newSession(s.backend, db, s.blobSize, s.maxUnflushed), nil
 }
 
