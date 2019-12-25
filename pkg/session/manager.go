@@ -3,9 +3,6 @@ package session
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,10 +10,23 @@ import (
 	"github.com/jtolds/jam/pkg/manifest"
 	"github.com/jtolds/jam/pkg/pathdb"
 	"github.com/jtolds/jam/pkg/stream"
+	"github.com/jtolds/jam/pkg/utils"
 )
 
-type Logger interface {
-	Printf(format string, v ...interface{})
+const (
+	pathPrefix = "manifests/"
+	timeFormat = "2006/01/02/15-04-05.000000000"
+)
+
+func timestampToPath(timestamp time.Time) string {
+	return pathPrefix + timestamp.UTC().Format(timeFormat)
+}
+
+func pathToTimestamp(path string) (time.Time, error) {
+	if !strings.HasPrefix(pathPrefix, path) {
+		return time.Time{}, fmt.Errorf("backend had unexpected behavior: path returned does not start with %q: %q", pathPrefix, path)
+	}
+	return time.ParseInLocation(timeFormat, strings.TrimPrefix(path, pathPrefix), time.UTC)
 }
 
 type Snapshot interface {
@@ -26,15 +36,12 @@ type Snapshot interface {
 
 type SessionManager struct {
 	backend      backends.Backend
-	logger       Logger
+	logger       utils.Logger
 	blobSize     int64
 	maxUnflushed int
 }
 
-func NewSessionManager(backend backends.Backend, logger Logger, blobSize int64, maxUnflushed int) *SessionManager {
-	if logger == nil {
-		logger = log.New(os.Stderr, "", log.LstdFlags)
-	}
+func NewSessionManager(backend backends.Backend, logger utils.Logger, blobSize int64, maxUnflushed int) *SessionManager {
 	return &SessionManager{
 		backend:      backend,
 		logger:       logger,
@@ -45,18 +52,16 @@ func NewSessionManager(backend backends.Backend, logger Logger, blobSize int64, 
 
 func (s *SessionManager) ListSnapshots(ctx context.Context,
 	cb func(ctx context.Context, timestamp time.Time) error) error {
-	// TODO: backend.List is not ordered. it might be nice if we added structure (named the files
-	//		after years/months/days with folders for each) so we could return these ordered.
-	return s.backend.List(ctx, "meta/", func(ctx context.Context, path string) error {
-		if !strings.HasPrefix("meta/", path) {
-			return fmt.Errorf("backend had unexpected behavior: path returned does not start with 'meta/': %q", path)
-		}
-		nsecs, err := strconv.ParseInt(path[5:], 10, 64)
+	// TODO: backend.List is not ordered. we could use the fact that manifests are stored
+	//		using timeFormat format and list by years and months in decreasing order to get
+	// 		an order
+	return s.backend.List(ctx, pathPrefix, func(ctx context.Context, path string) error {
+		timestamp, err := pathToTimestamp(path)
 		if err != nil {
-			s.logger.Printf("found invalid manifest timestamp: %q, skipping", path)
+			s.logger.Printf("invalid manifest format: %q, skipping. error: %v", path, err)
 			return nil
 		}
-		return cb(ctx, time.Unix(0, nsecs))
+		return cb(ctx, timestamp)
 	})
 }
 
@@ -86,7 +91,7 @@ func (s *SessionManager) LatestSnapshot(ctx context.Context) (Snapshot, error) {
 }
 
 func (s *SessionManager) openSession(ctx context.Context, timestamp time.Time) (*Session, error) {
-	db, err := pathdb.Open(ctx, s.backend, "meta/"+fmt.Sprint(timestamp.UnixNano()))
+	db, err := pathdb.Open(ctx, s.backend, timestampToPath(timestamp))
 	if err != nil {
 		return nil, err
 	}

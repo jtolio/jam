@@ -63,6 +63,9 @@ func (fs *FS) Put(ctx context.Context, path string, data io.Reader) error {
 // Delete implements the Backend interface
 func (fs *FS) Delete(ctx context.Context, path string) error {
 	localpath := filepath.Join(fs.root, path)
+	if _, err := os.Stat(localpath); os.IsNotExist(err) {
+		return nil
+	}
 	err := os.Remove(localpath)
 	if err != nil {
 		return err
@@ -85,6 +88,10 @@ func (fs *FS) Delete(ctx context.Context, path string) error {
 // List implements the Backend interface
 func (fs *FS) List(ctx context.Context, prefix string,
 	cb func(ctx context.Context, path string) error) error {
+	localpath := filepath.Join(fs.root, prefix)
+	if _, err := os.Stat(localpath); os.IsNotExist(err) {
+		return nil
+	}
 	return filepath.Walk(filepath.Join(fs.root, prefix),
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
