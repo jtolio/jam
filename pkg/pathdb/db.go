@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"github.com/zeebo/errs"
-	"modernc.org/b"
 
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/pkg/blobs"
 	"github.com/jtolds/jam/pkg/manifest"
+	"github.com/jtolds/jam/pkg/pathdb/b"
 	"github.com/jtolds/jam/pkg/streams"
 )
 
@@ -25,9 +25,7 @@ func Open(ctx context.Context, backend backends.Backend, blobStore *blobs.Store,
 	db := &DB{
 		backend: backend,
 		blobs:   blobStore,
-		tree: b.TreeNew(func(a, b interface{}) int {
-			return strings.Compare(a.(string), b.(string))
-		}),
+		tree:    b.TreeNew(strings.Compare),
 	}
 	return db, db.load(ctx, stream)
 }
@@ -75,7 +73,7 @@ func (db *DB) Get(ctx context.Context, path string) (*manifest.Content, error) {
 	if !ok {
 		return nil, nil
 	}
-	return v.(*manifest.Content), nil
+	return v, nil
 }
 
 func (db *DB) List(ctx context.Context, prefix string, recursive bool,
