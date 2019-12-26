@@ -1,4 +1,4 @@
-package session
+package blobs
 
 import (
 	"io"
@@ -7,13 +7,14 @@ import (
 )
 
 type concat struct {
-	entries []*stagedEntry
-	current *stagedEntry
-	offset  int64
-	blob    string
+	entries       []*entry
+	current       *entry
+	currentStream *manifest.Stream
+	offset        int64
+	blob          string
 }
 
-func newConcat(entries ...*stagedEntry) *concat {
+func newConcat(entries ...*entry) *concat {
 	c := &concat{
 		entries: entries,
 		blob:    idGen(),
@@ -46,14 +47,16 @@ func (c *concat) Read(p []byte) (n int, err error) {
 
 func (c *concat) capRange() {
 	if c.current != nil {
-		rangeCount := len(c.current.stream.Ranges)
+		rangeCount := len(c.currentStream.Ranges)
 		length := c.offset -
-			c.current.stream.Ranges[rangeCount-1].Offset
+			c.currentStream.Ranges[rangeCount-1].Offset
 		if length > 0 {
-			c.current.stream.Ranges[rangeCount-1].Length = length
+			c.currentStream.Ranges[rangeCount-1].Length = length
 		} else {
-			c.current.stream.Ranges = c.current.stream.Ranges[:rangeCount-1]
+			c.currentStream.Ranges = c.currentStream.Ranges[:rangeCount-1]
 		}
+		c.current.cb(c.currentStream)
+		c.currentStream = nil
 	}
 }
 
@@ -64,7 +67,7 @@ func (c *concat) advance() {
 	} else {
 		c.current = c.entries[0]
 		c.entries = c.entries[1:]
-		c.current.stream = &manifest.Stream{
+		c.currentStream = &manifest.Stream{
 			Ranges: []*manifest.Range{
 				&manifest.Range{
 					Blob:   c.blob,
@@ -81,7 +84,7 @@ func (c *concat) Cut() {
 	c.offset = 0
 	c.blob = idGen()
 	if c.current != nil {
-		c.current.stream.Ranges = append(c.current.stream.Ranges,
+		c.currentStream.Ranges = append(c.currentStream.Ranges,
 			&manifest.Range{
 				Blob:   c.blob,
 				Offset: c.offset,

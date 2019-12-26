@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jtolds/jam/backends"
+	"github.com/jtolds/jam/pkg/blobs"
 	"github.com/jtolds/jam/pkg/manifest"
 	"github.com/jtolds/jam/pkg/pathdb"
 	"github.com/jtolds/jam/pkg/streams"
@@ -31,23 +32,21 @@ func pathToTimestamp(path string) (time.Time, error) {
 }
 
 type Snapshot interface {
-	List(ctx context.Context, prefix string, cb func(context.Context, manifest.Entry) error) error
+	List(ctx context.Context, prefix string, recursive bool, cb func(ctx context.Context, path string, meta *manifest.Metadata, data *streams.Stream) error) error
 	Open(ctx context.Context, path string) (*manifest.Metadata, *streams.Stream, error)
 }
 
 type SessionManager struct {
-	backend      backends.Backend
-	logger       utils.Logger
-	blobSize     int64
-	maxUnflushed int
+	backend backends.Backend
+	logger  utils.Logger
+	blobs   *blobs.Store
 }
 
-func NewSessionManager(backend backends.Backend, logger utils.Logger, blobSize int64, maxUnflushed int) *SessionManager {
+func NewSessionManager(backend backends.Backend, logger utils.Logger, blobStore *blobs.Store) *SessionManager {
 	return &SessionManager{
-		backend:      backend,
-		logger:       logger,
-		blobSize:     blobSize,
-		maxUnflushed: maxUnflushed,
+		backend: backend,
+		logger:  logger,
+		blobs:   blobStore,
 	}
 }
 
@@ -100,12 +99,12 @@ func (s *SessionManager) openSession(ctx context.Context, timestamp time.Time) (
 		err = errs.Combine(err, rc.Close())
 	}()
 
-	db, err := pathdb.Open(ctx, s.backend, rc)
+	db, err := pathdb.Open(ctx, s.backend, s.blobs, rc)
 	if err != nil {
 		return nil, err
 	}
 
-	return newSession(s.backend, db, s.blobSize, s.maxUnflushed), nil
+	return newSession(s.backend, db, s.blobs), nil
 }
 
 func (s *SessionManager) OpenSnapshot(ctx context.Context, timestamp time.Time) (Snapshot, error) {

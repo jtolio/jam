@@ -19,7 +19,6 @@ message Metadata {
     UNKNOWN = 0;
     FILE = 1;
     SYMLINK = 2;
-    DIR = 3;
   }
 
   Type type = 1;

@@ -1,9 +1,10 @@
 package session
 
 import (
-	"bufio"
 	"context"
+	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -11,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"github.com/jtolds/jam/backends"
+	"github.com/jtolds/jam/pkg/blobs"
 	"github.com/jtolds/jam/pkg/manifest"
 	"github.com/jtolds/jam/pkg/pathdb"
 	"github.com/jtolds/jam/pkg/streams"
@@ -27,35 +29,51 @@ type stagedEntry struct {
 	op       opType
 	path     string
 	metadata *manifest.Metadata
-	source   io.ReadCloser
 	stream   *manifest.Stream
 }
 
 type Session struct {
-	backend      backends.Backend
-	paths        *pathdb.DB
-	blobSize     int64
-	maxUnflushed int
-	staging      []*stagedEntry
-	unflushed    []*stagedEntry
+	backend backends.Backend
+	paths   *pathdb.DB
+	blobs   *blobs.Store
+	staging []*stagedEntry
 }
 
-func newSession(backend backends.Backend, paths *pathdb.DB, blobSize int64, maxUnflushed int) *Session {
+func newSession(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Store) *Session {
 	s := &Session{
-		backend:      backend,
-		paths:        paths,
-		blobSize:     blobSize,
-		maxUnflushed: maxUnflushed,
+		backend: backend,
+		paths:   paths,
+		blobs:   blobStore,
 	}
 	return s
 }
 
-func (s *Session) List(ctx context.Context, prefix string, cb func(context.Context, manifest.Entry) error) error {
-	panic("TODO")
+func (s *Session) List(ctx context.Context, prefix string, recursive bool,
+	cb func(ctx context.Context, path string, meta *manifest.Metadata, data *streams.Stream) error) error {
+	// TODO: it's weird that we're passing an open stream here. we need to make it way clearer
+	// how to deal with the stream life cycle somehow.
+	return s.paths.List(ctx, prefix, recursive,
+		func(ctx context.Context, path string, content *manifest.Content) error {
+			stream, err := streams.Open(ctx, s.backend, content.Data)
+			if err != nil {
+				return err
+			}
+			return cb(ctx, path, content.Metadata, stream)
+		})
 }
 
+var ErrNotFound = fmt.Errorf("file not found")
+
 func (s *Session) Open(ctx context.Context, path string) (*manifest.Metadata, *streams.Stream, error) {
-	panic("TODO")
+	content, err := s.paths.Get(ctx, path)
+	if err != nil {
+		return nil, nil, err
+	}
+	if content == nil {
+		return nil, nil, ErrNotFound
+	}
+	stream, err := streams.Open(ctx, s.backend, content.Data)
+	return content.Metadata, stream, err
 }
 
 func (s *Session) Delete(ctx context.Context, path string) error {
@@ -69,6 +87,9 @@ func (s *Session) Delete(ctx context.Context, path string) error {
 // PutFile causes the Session to take ownership of the data io.ReadCloser and will close it when the Session
 // either uses the data or closes itself.
 func (s *Session) PutFile(ctx context.Context, path string, creation, modified time.Time, mode uint32, data io.ReadCloser) error {
+	if strings.HasSuffix(path, "/") {
+		return fmt.Errorf("file paths cannot end with a '/': %q", path)
+	}
 	creationPB, modifiedPB, err := convertTime(creation, modified)
 	if err != nil {
 		return errs.Combine(err, data.Close())
@@ -83,40 +104,19 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 			Modified: modifiedPB,
 			Mode:     mode,
 		},
-		source: data,
 	}
 
 	s.staging = append(s.staging, entry)
-	s.unflushed = append(s.unflushed, entry)
 
-	if len(s.unflushed) <= s.maxUnflushed {
-		return nil
-	}
-
-	return s.Flush(ctx)
-}
-
-func (s *Session) PutDir(ctx context.Context, path string, creation, modified time.Time, mode uint32) error {
-	creationPB, modifiedPB, err := convertTime(creation, modified)
-	if err != nil {
-		return err
-	}
-
-	s.staging = append(s.staging, &stagedEntry{
-		op:   opPut,
-		path: path,
-		metadata: &manifest.Metadata{
-			Type:     manifest.Metadata_DIR,
-			Creation: creationPB,
-			Modified: modifiedPB,
-			Mode:     mode,
-		},
+	return s.blobs.Put(ctx, data, func(stream *manifest.Stream) {
+		entry.stream = stream
 	})
-
-	return nil
 }
 
 func (s *Session) PutSymlink(ctx context.Context, path string, creation, modified time.Time, mode uint32, target string) error {
+	if strings.HasSuffix(path, "/") {
+		return fmt.Errorf("file paths cannot end with a '/': %q", path)
+	}
 	creationPB, modifiedPB, err := convertTime(creation, modified)
 	if err != nil {
 		return err
@@ -148,56 +148,42 @@ func convertTime(a, b time.Time) (*timestamp.Timestamp, *timestamp.Timestamp, er
 	return apb, bpb, nil
 }
 
-func (s *Session) Flush(ctx context.Context) (err error) {
-	unflushed := s.unflushed
-	s.unflushed = nil
-	defer func() {
-		err = errs.Combine(err, close(unflushed))
-	}()
-
-	c := newConcat(unflushed...)
-
-	for !c.EOF() {
-		blob := bufio.NewReader(io.LimitReader(c, s.blobSize))
-		_, err = blob.Peek(1)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		err = s.backend.Put(ctx, blobPath(c.Blob()), blob)
-		if err != nil {
-			return err
-		}
-		c.Cut()
-	}
-
-	return nil
+func (s *Session) Flush(ctx context.Context) error {
+	return s.blobs.Flush(ctx)
 }
 
 func (s *Session) Commit(ctx context.Context) error {
+	if len(s.staging) == 0 {
+		return nil
+	}
 	err := s.Flush(ctx)
 	if err != nil {
 		return err
 	}
-	panic("TODO")
-}
-
-func (s *Session) Close(ctx context.Context) error {
-	unflushed := s.unflushed
-	s.unflushed = nil
-	s.staging = nil
-	return close(unflushed)
-}
-
-func close(entries []*stagedEntry) error {
-	var group errs.Group
-	for _, entry := range entries {
-		if entry.source != nil {
-			group.Add(entry.source.Close())
-			entry.source = nil
+	for _, entry := range s.staging {
+		switch entry.op {
+		case opPut:
+			err = s.paths.Put(ctx, entry.path, &manifest.Content{
+				Metadata: entry.metadata,
+				Data:     entry.stream,
+			})
+			if err != nil {
+				return err
+			}
+		case opDelete:
+			err = s.paths.Delete(ctx, entry.path)
+			if err != nil {
+				return err
+			}
+		default:
+			panic(fmt.Sprintf("unknown op type: %q", entry.op))
 		}
 	}
-	return group.Err()
+
+	return s.paths.Save(ctx, timestampToPath(time.Now()))
+}
+
+func (s *Session) Close() error {
+	s.staging = nil
+	return s.blobs.Close()
 }

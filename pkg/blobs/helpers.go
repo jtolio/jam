@@ -1,8 +1,10 @@
-package session
+package blobs
 
 import (
 	"crypto/rand"
 	"encoding/base64"
+
+	"github.com/jtolds/jam/pkg/streams"
 )
 
 func idGen() string {
@@ -15,5 +17,5 @@ func idGen() string {
 }
 
 func blobPath(id string) string {
-	return "blob/" + id[:2] + "/" + id[2:]
+	return streams.BlobPrefix + id[:2] + "/" + id[2:]
 }
