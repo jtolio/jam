@@ -6,13 +6,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/pkg/blobs"
 	"github.com/jtolds/jam/pkg/manifest"
 	"github.com/jtolds/jam/pkg/pathdb"
 	"github.com/jtolds/jam/pkg/streams"
 	"github.com/jtolds/jam/pkg/utils"
-	"github.com/zeebo/errs"
 )
 
 const (
@@ -25,15 +26,17 @@ func timestampToPath(timestamp time.Time) string {
 }
 
 func pathToTimestamp(path string) (time.Time, error) {
-	if !strings.HasPrefix(pathPrefix, path) {
-		return time.Time{}, fmt.Errorf("backend had unexpected behavior: path returned does not start with %q: %q", pathPrefix, path)
+	if !strings.HasPrefix(path, pathPrefix) {
+		return time.Time{}, errs.New("backend had unexpected behavior: path returned does not start with %q: %q", pathPrefix, path)
 	}
-	return time.ParseInLocation(timeFormat, strings.TrimPrefix(path, pathPrefix), time.UTC)
+	ts, err := time.ParseInLocation(timeFormat, strings.TrimPrefix(path, pathPrefix), time.UTC)
+	return ts, errs.Wrap(err)
 }
 
 type Snapshot interface {
 	List(ctx context.Context, prefix string, recursive bool, cb func(ctx context.Context, path string, meta *manifest.Metadata, data *streams.Stream) error) error
 	Open(ctx context.Context, path string) (*manifest.Metadata, *streams.Stream, error)
+	Close() error
 }
 
 type SessionManager struct {
@@ -55,14 +58,14 @@ func (s *SessionManager) ListSnapshots(ctx context.Context,
 	// TODO: backend.List is not ordered. we could use the fact that manifests are stored
 	//		using timeFormat format and list by years and months in decreasing order to get
 	// 		an order
-	return s.backend.List(ctx, pathPrefix, func(ctx context.Context, path string) error {
+	return errs.Wrap(s.backend.List(ctx, pathPrefix, func(ctx context.Context, path string) error {
 		timestamp, err := pathToTimestamp(path)
 		if err != nil {
 			s.logger.Printf("invalid manifest format: %q, skipping. error: %v", path, err)
 			return nil
 		}
 		return cb(ctx, timestamp)
-	})
+	}))
 }
 
 func (s *SessionManager) latestTimestamp(ctx context.Context) (time.Time, error) {
@@ -76,9 +79,6 @@ func (s *SessionManager) latestTimestamp(ctx context.Context) (time.Time, error)
 	if err != nil {
 		return latest, err
 	}
-	if latest.IsZero() {
-		return latest, fmt.Errorf("no snapshots exist yet")
-	}
 	return latest, nil
 }
 
@@ -86,6 +86,9 @@ func (s *SessionManager) LatestSnapshot(ctx context.Context) (Snapshot, error) {
 	latest, err := s.latestTimestamp(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if latest.IsZero() {
+		return nil, fmt.Errorf("no snapshots exist yet")
 	}
 	return s.OpenSnapshot(ctx, latest)
 }
@@ -116,5 +119,9 @@ func (s *SessionManager) NewSession(ctx context.Context) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.openSession(ctx, latest)
+	if latest.IsZero() {
+		return newSession(s.backend, pathdb.New(s.backend, s.blobs), s.blobs), nil
+	} else {
+		return s.openSession(ctx, latest)
+	}
 }

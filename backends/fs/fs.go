@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/zeebo/errs"
+
 	"github.com/jtolds/jam/backends"
 )
 
@@ -26,13 +28,13 @@ func (fs *FS) Get(ctx context.Context, path string, offset int64) (io.ReadCloser
 	localpath := filepath.Join(fs.root, path)
 	fh, err := os.Open(localpath)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	if offset > 0 {
 		_, err = fh.Seek(offset, io.SeekStart)
 		if err != nil {
 			fh.Close()
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 	}
 	return fh, nil
@@ -43,7 +45,7 @@ func (fs *FS) Put(ctx context.Context, path string, data io.Reader) error {
 	localpath := filepath.Join(fs.root, path)
 	err := os.MkdirAll(filepath.Dir(localpath), 0700)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 
 	fh, err := os.Create(localpath)
@@ -54,10 +56,10 @@ func (fs *FS) Put(ctx context.Context, path string, data io.Reader) error {
 	_, err = io.Copy(fh, data)
 	if err != nil {
 		fh.Close()
-		return err
+		return errs.Wrap(err)
 	}
 
-	return fh.Close()
+	return errs.Wrap(fh.Close())
 }
 
 // Delete implements the Backend interface
@@ -68,7 +70,7 @@ func (fs *FS) Delete(ctx context.Context, path string) error {
 	}
 	err := os.Remove(localpath)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 	// the rest is not required but is an attempt to be nice and clean up intermediate
 	// directories after ourselves. remove any parents up to the root that are empty
@@ -95,8 +97,15 @@ func (fs *FS) List(ctx context.Context, prefix string,
 	return filepath.Walk(filepath.Join(fs.root, prefix),
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				return err
+				return errs.Wrap(err)
 			}
-			return cb(ctx, path)
+			if !info.Mode().IsRegular() {
+				return nil
+			}
+			internal, err := filepath.Rel(fs.root, path)
+			if err != nil {
+				return errs.Wrap(err)
+			}
+			return cb(ctx, internal)
 		})
 }

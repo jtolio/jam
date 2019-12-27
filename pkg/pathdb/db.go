@@ -1,9 +1,12 @@
 package pathdb
 
 import (
-	"compress/gzip"
+	"bytes"
+	"compress/zlib"
 	"context"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -18,20 +21,25 @@ import (
 type DB struct {
 	backend backends.Backend
 	blobs   *blobs.Store
-	tree    *b.Tree
+	// TODO: don't expect the whole manifest to fit into RAM
+	tree *b.Tree
 }
 
 func Open(ctx context.Context, backend backends.Backend, blobStore *blobs.Store, stream io.Reader) (*DB, error) {
-	db := &DB{
+	db := New(backend, blobStore)
+	return db, db.load(ctx, stream)
+}
+
+func New(backend backends.Backend, blobStore *blobs.Store) *DB {
+	return &DB{
 		backend: backend,
 		blobs:   blobStore,
 		tree:    b.TreeNew(strings.Compare),
 	}
-	return db, db.load(ctx, stream)
 }
 
 func (db *DB) load(ctx context.Context, stream io.Reader) error {
-	r, err := gzip.NewReader(stream)
+	r, err := zlib.NewReader(stream)
 	if err != nil {
 		return err
 	}
@@ -78,7 +86,27 @@ func (db *DB) Get(ctx context.Context, path string) (*manifest.Content, error) {
 
 func (db *DB) List(ctx context.Context, prefix string, recursive bool,
 	cb func(ctx context.Context, path string, content *manifest.Content) error) error {
-	panic("TODO")
+	if !recursive {
+		return fmt.Errorf("TODO: nonrecursive listing unimplemented")
+	}
+	it, _ := db.tree.Seek(prefix)
+	for {
+		path, content, err := it.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		if !strings.HasPrefix(path, prefix) {
+			break
+		}
+		err = cb(ctx, path, content)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (db *DB) Put(ctx context.Context, path string, content *manifest.Content) error {
@@ -91,9 +119,61 @@ func (db *DB) Delete(ctx context.Context, path string) error {
 	return nil
 }
 
-func (db *DB) Save(ctx context.Context, backendPath string) error {
-	// TODO: weird that this is the only place that backend paths leak into
-	// this data structure. should we harmonize how open and save work?
-	// Perhaps Saving should be an external method that operates on a pathdb?
-	panic("TODO")
+func (db *DB) Serialize(ctx context.Context) (io.ReadCloser, error) {
+	// TODO: don't just dump all of the entries into the root manifest page.
+	// TODO: even if the whole manifest is in RAM, don't double the RAM usage here
+	var entries manifest.EntrySet
+
+	it, err := db.tree.SeekFirst()
+	if err != nil {
+		if err != io.EOF {
+			return nil, err
+		}
+	} else {
+		defer it.Close()
+		for {
+			path, content, err := it.Next()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return nil, err
+			}
+			entries.Entries = append(entries.Entries, &manifest.Entry{
+				Path:    path,
+				Content: content,
+			})
+		}
+	}
+
+	var page manifest.Page
+	page.Descendents = &manifest.Page_Entries{
+		Entries: &entries,
+	}
+	data, err := manifest.MarshalSized(&page)
+	if err != nil {
+		return nil, err
+	}
+
+	var out bytes.Buffer
+	compressor := zlib.NewWriter(&out)
+	_, err = compressor.Write(data)
+	if err != nil {
+		return nil, err
+	}
+	err = compressor.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	return ioutil.NopCloser(&out), nil
+}
+
+func (db *DB) Close() error {
+	tree := db.tree
+	db.tree = nil
+	if tree != nil {
+		tree.Close()
+	}
+	return nil
 }

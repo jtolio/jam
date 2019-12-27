@@ -3,6 +3,8 @@ package blobs
 import (
 	"io"
 
+	"github.com/zeebo/errs"
+
 	"github.com/jtolds/jam/pkg/manifest"
 )
 
@@ -32,11 +34,11 @@ func (c *concat) Read(p []byte) (n int, err error) {
 		c.offset += int64(n)
 		if err != nil {
 			if err != io.EOF {
-				return n, err
+				return n, errs.Wrap(err)
 			}
 			c.advance()
 			if c.current == nil {
-				return n, err
+				return n, io.EOF
 			}
 		}
 		if n > 0 {
@@ -72,7 +74,9 @@ func (c *concat) advance() {
 				&manifest.Range{
 					Blob:   c.blob,
 					Offset: c.offset,
-				}}}
+				},
+			},
+		}
 	}
 }
 

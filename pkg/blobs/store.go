@@ -9,6 +9,7 @@ import (
 
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/pkg/manifest"
+	"github.com/jtolds/jam/pkg/streams"
 )
 
 type entry struct {
@@ -58,11 +59,11 @@ func (s *Store) Flush(ctx context.Context) (err error) {
 			if err == io.EOF {
 				break
 			}
-			return err
+			return errs.Wrap(err)
 		}
-		err = s.backend.Put(ctx, blobPath(c.Blob()), blob)
+		err = s.backend.Put(ctx, streams.BlobPath(c.Blob()), blob)
 		if err != nil {
-			return err
+			return errs.Wrap(err)
 		}
 		c.Cut()
 	}
@@ -79,7 +80,7 @@ func (s *Store) Close() error {
 func closeEntries(entries []*entry) error {
 	var group errs.Group
 	for _, entry := range entries {
-		group.Add(entry.source.Close())
+		group.Add(errs.Wrap(entry.source.Close()))
 	}
 	return group.Err()
 }

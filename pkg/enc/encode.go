@@ -3,6 +3,8 @@ package enc
 import (
 	"bufio"
 	"io"
+
+	"github.com/zeebo/errs"
 )
 
 type encodedReader struct {
@@ -31,11 +33,14 @@ func (r *encodedReader) read(p []byte) (n int, err error) {
 	if len(r.outbuf) <= 0 {
 		_, err = io.ReadFull(r.r, r.inbuf)
 		if err != nil {
-			return 0, err
+			if err == io.EOF {
+				return 0, err
+			}
+			return 0, errs.Wrap(err)
 		}
 		r.outbuf, err = r.c.Encode(r.outbuf, r.inbuf, r.key, r.blockNum)
 		if err != nil {
-			return 0, err
+			return 0, errs.Wrap(err)
 		}
 		r.blockNum++
 	}

@@ -152,11 +152,11 @@ func (s *Session) Flush(ctx context.Context) error {
 	return s.blobs.Flush(ctx)
 }
 
-func (s *Session) Commit(ctx context.Context) error {
+func (s *Session) Commit(ctx context.Context) (err error) {
 	if len(s.staging) == 0 {
 		return nil
 	}
-	err := s.Flush(ctx)
+	err = s.Flush(ctx)
 	if err != nil {
 		return err
 	}
@@ -180,10 +180,17 @@ func (s *Session) Commit(ctx context.Context) error {
 		}
 	}
 
-	return s.paths.Save(ctx, timestampToPath(time.Now()))
+	rc, err := s.paths.Serialize(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errs.Combine(err, rc.Close())
+	}()
+	return s.backend.Put(ctx, timestampToPath(time.Now()), rc)
 }
 
 func (s *Session) Close() error {
 	s.staging = nil
-	return s.blobs.Close()
+	return s.paths.Close()
 }

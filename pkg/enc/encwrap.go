@@ -74,7 +74,10 @@ func (e *EncWrapper) Put(ctx context.Context, path string, data io.Reader) error
 	// See implementation note in List
 	// See implementation note in Get
 	key := e.keyGen.KeyForPath(path)
-	return e.backend.Put(ctx, path, EncodeReader(data, e.enc, &key, 0))
+	return e.backend.Put(ctx, path,
+		EncodeReader(
+			&padding{r: data, bs: e.enc.DecodedBlockSize()},
+			e.enc, &key, 0))
 }
 
 // Delete implements the Backend interface
@@ -96,4 +99,31 @@ func (e *EncWrapper) List(ctx context.Context, prefix string,
 	// contain metadata vs real data or to determine upload timestamps.
 	// So, paths to the backend are passed through.
 	return e.backend.List(ctx, prefix, cb)
+}
+
+type padding struct {
+	r   io.Reader
+	bs  int
+	n   int64
+	pad io.Reader
+}
+
+func (pd *padding) Read(p []byte) (n int, err error) {
+	if pd.pad != nil {
+		return pd.pad.Read(p)
+	}
+	n, err = pd.r.Read(p)
+	pd.n += int64(n)
+	if err != io.EOF {
+		return n, err
+	}
+	if pd.n%int64(pd.bs) == 0 {
+		pd.pad = bytes.NewReader(nil)
+	} else {
+		pd.pad = bytes.NewReader(make([]byte, int64(pd.bs)-pd.n%int64(pd.bs)))
+	}
+	if n == 0 {
+		return pd.Read(p)
+	}
+	return n, nil
 }

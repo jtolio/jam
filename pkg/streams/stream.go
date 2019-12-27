@@ -42,6 +42,7 @@ func (f *Stream) Read(p []byte) (n int, err error) {
 		}
 	}
 	n, err = f.currentRange.Read(p)
+	f.currentOffset += int64(n)
 	if err == io.EOF {
 		err = f.Close()
 	}
