@@ -16,7 +16,10 @@ import (
 	"github.com/jtolds/jam/pkg/manifest"
 	"github.com/jtolds/jam/pkg/pathdb/b"
 	"github.com/jtolds/jam/pkg/streams"
+	"github.com/jtolds/jam/pkg/utils"
 )
+
+const versionHeader = "jam-v0\n"
 
 type DB struct {
 	backend backends.Backend
@@ -39,7 +42,19 @@ func New(backend backends.Backend, blobStore *blobs.Store) *DB {
 }
 
 func (db *DB) load(ctx context.Context, stream io.Reader) error {
-	r, err := zlib.NewReader(stream)
+	v := make([]byte, len([]byte(versionHeader)))
+	_, err := io.ReadFull(stream, v)
+	if err != nil {
+		if err == io.EOF {
+			err = errs.Wrap(io.ErrUnexpectedEOF)
+		}
+		return err
+	}
+	if versionHeader != string(v) {
+		return errs.New("invalid manifest version")
+	}
+
+	r, err := zlib.NewReader(utils.NewUnframingReader(stream))
 	if err != nil {
 		return err
 	}
@@ -166,7 +181,9 @@ func (db *DB) Serialize(ctx context.Context) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	return ioutil.NopCloser(&out), nil
+	return ioutil.NopCloser(io.MultiReader(
+		bytes.NewReader([]byte(versionHeader)),
+		utils.NewFramingReader(&out))), nil
 }
 
 func (db *DB) Close() error {
