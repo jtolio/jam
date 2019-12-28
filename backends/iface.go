@@ -19,6 +19,11 @@ import (
 //      meta/<timestamp>
 //      blob/<hex>/<hash>
 //		etc.
+//
+// One other interesting note - backends are allowed to zero-fill some arbitrary
+// length of data at the end of an object. If a caller does a Put for 10 bytes,
+// it should not be surprised if a Get returns a reader for 16 bytes, where the
+// last 6 are zeros. This allows for padding or alignment.
 type Backend interface {
 	// Get takes a path and an offset and returns an io.ReadCloser consisting of
 	// data from the offset to the end of the object. The offset will be >= 0 and
