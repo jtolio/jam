@@ -91,7 +91,7 @@ func (fs *FS) Delete(ctx context.Context, path string) error {
 func (fs *FS) List(ctx context.Context, prefix string,
 	cb func(ctx context.Context, path string) error) error {
 	localpath := filepath.Join(fs.root, prefix)
-	if _, err := os.Stat(localpath); os.IsNotExist(err) {
+	if s, err := os.Stat(localpath); os.IsNotExist(err) || !s.IsDir() {
 		return nil
 	}
 	return filepath.Walk(filepath.Join(fs.root, prefix),

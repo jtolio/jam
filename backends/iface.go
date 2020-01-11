@@ -19,6 +19,7 @@ import (
 //      meta/<timestamp>
 //      blob/<hex>/<hash>
 //		etc.
+//  * The prefix of one path will never be the full path of another object.
 //
 // One other interesting note - backends are allowed to zero-fill some arbitrary
 // length of data at the end of an object. If a caller does a Put for 10 bytes,
@@ -27,7 +28,8 @@ import (
 type Backend interface {
 	// Get takes a path and an offset and returns an io.ReadCloser consisting of
 	// data from the offset to the end of the object. The offset will be >= 0 and
-	// less than the object's length. Behavior outside of those bounds is undefined.
+	// less than or equal to the object's length. Behavior outside of those bounds
+	// is undefined.
 	Get(ctx context.Context, path string, offset int64) (io.ReadCloser, error)
 	// Put creates a new object at path consisting of the provided data.
 	// Put will not be called if the path exists, so behavior for existent paths
