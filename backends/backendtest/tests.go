@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"reflect"
 	"sort"
@@ -49,10 +50,12 @@ type suite struct {
 }
 
 func (t *suite) TestGetPutListDelete() {
+	data1 := "hello"
+	data2 := "hi"
 	rv := listSlice(t.b, "")
 	assert(len(rv) == 0)
-	ane(t.b.Put(ctx, "hello/there", bytes.NewReader([]byte("hello"))))
-	ane(t.b.Put(ctx, "hi/there", bytes.NewReader([]byte("hi"))))
+	ane(t.b.Put(ctx, "hello/there", bytes.NewReader([]byte(data1))))
+	ane(t.b.Put(ctx, "hi/there", bytes.NewReader([]byte(data2))))
 	rv = listSlice(t.b, "")
 	assert(len(rv) == 2)
 	assert(rv[0] == "hello/there")
@@ -62,9 +65,9 @@ func (t *suite) TestGetPutListDelete() {
 	assert(rv[0] == "hello/there")
 	rc, err := t.b.Get(ctx, "hello/there", 0)
 	ane(err)
-	data, err := ioutil.ReadAll(rc)
+	data, err := ioutil.ReadAll(io.LimitReader(rc, int64(len([]byte(data1)))))
 	ane(err)
-	assert(bytes.Equal(data, []byte("hello")))
+	assert(bytes.Equal(data, []byte(data1)))
 	ane(rc.Close())
 	ane(t.b.Delete(ctx, "hello/there"))
 	rv = listSlice(t.b, "hello/")
@@ -74,9 +77,9 @@ func (t *suite) TestGetPutListDelete() {
 	assert(rv[0] == "hi/there")
 	rc, err = t.b.Get(ctx, "hi/there", 0)
 	ane(err)
-	data, err = ioutil.ReadAll(rc)
+	data, err = ioutil.ReadAll(io.LimitReader(rc, int64(len([]byte(data2)))))
 	ane(err)
-	assert(bytes.Equal(data, []byte("hi")))
+	assert(bytes.Equal(data, []byte(data2)))
 	ane(rc.Close())
 }
 
@@ -88,7 +91,7 @@ func (t *suite) TestOffset() {
 	for i := 0; i <= len(data[:]); i++ {
 		rc, err := t.b.Get(ctx, "testfile", int64(i))
 		ane(err)
-		testdata, err := ioutil.ReadAll(rc)
+		testdata, err := ioutil.ReadAll(io.LimitReader(rc, int64(len(data)-i)))
 		ane(err)
 		ane(rc.Close())
 		assert(bytes.Equal(data[i:], testdata))
