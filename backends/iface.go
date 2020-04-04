@@ -24,7 +24,9 @@ import (
 // One other interesting note - backends are allowed to garbage-fill some
 // arbitrary length of data at the end of an object. If a caller does a Put
 // for 10 bytes, a Get is allowed to return a reader for more than 10 bytes,
-// where the bytes after the 10th are arbitrary.
+// where the bytes after the 10th are arbitrary. This does mean that readers
+// returned from Gets will most certainly be closed before they are
+// exhausted.
 type Backend interface {
 	// Get takes a path and an offset and returns an io.ReadCloser consisting of
 	// data from the offset to the end of the object. The offset will be >= 0 and

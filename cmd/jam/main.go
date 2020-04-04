@@ -3,11 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"time"
+
+	"github.com/peterbourgon/ff/v3/ffcli"
 
 	"github.com/jtolds/jam/backends/fs"
 	"github.com/jtolds/jam/pkg/blobs"
@@ -18,32 +22,96 @@ import (
 	"github.com/jtolds/jam/pkg/utils"
 )
 
+var (
+	cmdTest = &ffcli.Command{
+		Name: "test",
+		Exec: Test,
+	}
+	cmdSnaps = &ffcli.Command{
+		Name:       "snaps",
+		ShortHelp:  "lists snapshots",
+		ShortUsage: fmt.Sprintf("%s snaps", os.Args[0]),
+		Exec:       Snaps,
+	}
+	cmdRoot = &ffcli.Command{
+		ShortHelp:   "jam preserves your data",
+		ShortUsage:  fmt.Sprintf("%s <subcommand>", os.Args[0]),
+		Subcommands: []*ffcli.Command{cmdTest, cmdSnaps},
+		Exec:        help,
+	}
+)
+
+func help(ctx context.Context, args []string) error { return flag.ErrHelp }
+
 func main() {
-	err := Main(context.Background())
+	err := cmdRoot.ParseAndRun(context.Background(), os.Args[1:])
 	if err != nil {
-		panic(fmt.Sprintf("%+v", err))
+		if errors.Is(err, flag.ErrHelp) {
+			return
+		}
+		fmt.Fprintf(os.Stderr, "error: %+v\n", err)
+		os.Exit(1)
 	}
 }
 
-func Main(ctx context.Context) error {
-	backend := enc.NewEncWrapper(enc.NewSecretboxCodec(16*1024), enc.NewHMACKeyGenerator([]byte("hello")), fs.NewFS("test-data"))
+func getManager(ctx context.Context) (mgr *session.Manager, close func() error, err error) {
+	backend := enc.NewEncWrapper(
+		enc.NewSecretboxCodec(16*1024),
+		enc.NewHMACKeyGenerator([]byte("hello")),
+		fs.NewFS("test-data"),
+	)
+	blobs := blobs.NewStore(backend, 64*1024*1024, 1024)
+	return session.NewManager(utils.DefaultLogger, backend, blobs), blobs.Close, nil
+}
 
-	blobStore := blobs.NewStore(backend, 64*1024*1024, 1024)
-	defer blobStore.Close()
+func Snaps(ctx context.Context, args []string) error {
+	mgr, mgrClose, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+	defer mgrClose()
 
-	mgr := session.NewSessionManager(backend, utils.DefaultLogger, blobStore)
+	return mgr.ListSnapshots(ctx, func(ctx context.Context, timestamp time.Time) error {
+		snapshot, err := mgr.OpenSnapshot(ctx, timestamp)
+		if err != nil {
+			return err
+		}
+		defer snapshot.Close()
+		var fileCount int64
+		err = snapshot.List(ctx, "", true, func(ctx context.Context, path string, metadata *manifest.Metadata, data *streams.Stream) error {
+			defer data.Close()
+			fileCount++
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("%v: %v (%d files)\n", timestamp.UnixNano(), timestamp.Local().Format("2006-01-02 03:04:05 pm"), fileCount)
+		return nil
+	})
+}
+
+func Test(ctx context.Context, args []string) error {
+	mgr, close, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+	defer close()
+
 	session, err := mgr.NewSession(ctx)
 	if err != nil {
 		return err
 	}
-	defer session.Close()
 
 	err = session.PutFile(ctx, "/etc/motd-"+fmt.Sprint(time.Now().Unix()), time.Now(), time.Now(), 0600, ioutil.NopCloser(bytes.NewReader([]byte("hello world\n"))))
 	if err != nil {
+		session.Close()
 		return err
 	}
 	err = session.Commit(ctx)
 	if err != nil {
+		session.Close()
 		return err
 	}
 	err = session.Close()

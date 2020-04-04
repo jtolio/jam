@@ -39,21 +39,21 @@ type Snapshot interface {
 	Close() error
 }
 
-type SessionManager struct {
+type Manager struct {
 	backend backends.Backend
 	logger  utils.Logger
 	blobs   *blobs.Store
 }
 
-func NewSessionManager(backend backends.Backend, logger utils.Logger, blobStore *blobs.Store) *SessionManager {
-	return &SessionManager{
+func NewManager(logger utils.Logger, backend backends.Backend, blobStore *blobs.Store) *Manager {
+	return &Manager{
 		backend: backend,
 		logger:  logger,
 		blobs:   blobStore,
 	}
 }
 
-func (s *SessionManager) ListSnapshots(ctx context.Context,
+func (s *Manager) ListSnapshots(ctx context.Context,
 	cb func(ctx context.Context, timestamp time.Time) error) error {
 	// TODO: backend.List is not ordered. we could use the fact that manifests are stored
 	//		using timeFormat format and list by years and months in decreasing order to get
@@ -68,7 +68,7 @@ func (s *SessionManager) ListSnapshots(ctx context.Context,
 	}))
 }
 
-func (s *SessionManager) latestTimestamp(ctx context.Context) (time.Time, error) {
+func (s *Manager) latestTimestamp(ctx context.Context) (time.Time, error) {
 	var latest time.Time
 	err := s.ListSnapshots(ctx, func(ctx context.Context, timestamp time.Time) error {
 		if latest.IsZero() || timestamp.After(latest) {
@@ -82,7 +82,7 @@ func (s *SessionManager) latestTimestamp(ctx context.Context) (time.Time, error)
 	return latest, nil
 }
 
-func (s *SessionManager) LatestSnapshot(ctx context.Context) (Snapshot, error) {
+func (s *Manager) LatestSnapshot(ctx context.Context) (Snapshot, error) {
 	latest, err := s.latestTimestamp(ctx)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func (s *SessionManager) LatestSnapshot(ctx context.Context) (Snapshot, error) {
 	return s.OpenSnapshot(ctx, latest)
 }
 
-func (s *SessionManager) openSession(ctx context.Context, timestamp time.Time) (*Session, error) {
+func (s *Manager) openSession(ctx context.Context, timestamp time.Time) (*Session, error) {
 	rc, err := s.backend.Get(ctx, timestampToPath(timestamp), 0)
 	if err != nil {
 		return nil, err
@@ -110,11 +110,11 @@ func (s *SessionManager) openSession(ctx context.Context, timestamp time.Time) (
 	return newSession(s.backend, db, s.blobs), nil
 }
 
-func (s *SessionManager) OpenSnapshot(ctx context.Context, timestamp time.Time) (Snapshot, error) {
+func (s *Manager) OpenSnapshot(ctx context.Context, timestamp time.Time) (Snapshot, error) {
 	return s.openSession(ctx, timestamp)
 }
 
-func (s *SessionManager) NewSession(ctx context.Context) (*Session, error) {
+func (s *Manager) NewSession(ctx context.Context) (*Session, error) {
 	latest, err := s.latestTimestamp(ctx)
 	if err != nil {
 		return nil, err
