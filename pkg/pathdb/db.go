@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/zlib"
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -99,11 +98,11 @@ func (db *DB) Get(ctx context.Context, path string) (*manifest.Content, error) {
 	return v, nil
 }
 
-func (db *DB) List(ctx context.Context, prefix string, recursive bool,
+func (db *DB) List(ctx context.Context, prefix, delimiter string,
 	cb func(ctx context.Context, path string, content *manifest.Content) error) error {
-	if !recursive {
-		return fmt.Errorf("TODO: nonrecursive listing unimplemented")
-	}
+	lastPath := ""
+	var lastContent *manifest.Content
+	lastSet := false
 	it, _ := db.tree.Seek(prefix)
 	for {
 		path, content, err := it.Next()
@@ -116,9 +115,25 @@ func (db *DB) List(ctx context.Context, prefix string, recursive bool,
 		if !strings.HasPrefix(path, prefix) {
 			break
 		}
-		err = cb(ctx, path, content)
-		if err != nil {
-			return err
+
+		if delimiter != "" {
+			// TODO: we should skip the iterator forward for performance,
+			if idx := strings.Index(path[len(prefix):], delimiter); idx >= 0 {
+				path = path[:len(prefix)+idx]
+				content = nil
+			}
+		}
+
+		if !lastSet || path != lastPath || content != lastContent {
+			// TODO: once we skip the iterator forward, we can stop doing
+			// this deduplication business
+			err = cb(ctx, path, content)
+			if err != nil {
+				return err
+			}
+			lastPath = path
+			lastContent = content
+			lastSet = true
 		}
 	}
 	return nil

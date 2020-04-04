@@ -34,7 +34,7 @@ func pathToTimestamp(path string) (time.Time, error) {
 }
 
 type Snapshot interface {
-	List(ctx context.Context, prefix string, recursive bool, cb func(ctx context.Context, path string, meta *manifest.Metadata, data *streams.Stream) error) error
+	List(ctx context.Context, prefix, delimiter string, cb func(ctx context.Context, path string, meta *manifest.Metadata, data *streams.Stream) error) error
 	Open(ctx context.Context, path string) (*manifest.Metadata, *streams.Stream, error)
 	Close() error
 }

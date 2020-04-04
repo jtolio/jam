@@ -48,11 +48,11 @@ func newSession(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Sto
 	return s
 }
 
-func (s *Session) List(ctx context.Context, prefix string, recursive bool,
+func (s *Session) List(ctx context.Context, prefix, delimiter string,
 	cb func(ctx context.Context, path string, meta *manifest.Metadata, data *streams.Stream) error) error {
 	// TODO: it's weird that we're passing an open stream here. we need to make it way clearer
 	// how to deal with the stream life cycle somehow.
-	return s.paths.List(ctx, prefix, recursive,
+	return s.paths.List(ctx, prefix, delimiter,
 		func(ctx context.Context, path string, content *manifest.Content) error {
 			stream, err := streams.Open(ctx, s.backend, content.Data)
 			if err != nil {

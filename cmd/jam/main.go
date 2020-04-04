@@ -89,7 +89,7 @@ func Snaps(ctx context.Context, args []string) error {
 		}
 		defer snapshot.Close()
 		var fileCount int64
-		err = snapshot.List(ctx, "", true, func(ctx context.Context, path string, metadata *manifest.Metadata, data *streams.Stream) error {
+		err = snapshot.List(ctx, "", "", func(ctx context.Context, path string, metadata *manifest.Metadata, data *streams.Stream) error {
 			defer data.Close()
 			fileCount++
 			return nil
@@ -142,7 +142,7 @@ func Test(ctx context.Context, args []string) error {
 		}
 		defer snapshot.Close()
 
-		return snapshot.List(ctx, "", true, func(ctx context.Context, path string, metadata *manifest.Metadata, data *streams.Stream) error {
+		return snapshot.List(ctx, "", "", func(ctx context.Context, path string, metadata *manifest.Metadata, data *streams.Stream) error {
 			defer data.Close()
 			fmt.Println("  ", path, metadata)
 			fmt.Println("===============")

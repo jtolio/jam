@@ -6,6 +6,9 @@
 //
 // Changelog
 //
+// 2019-12-26: imported into github.com/jtolds/jam with concrete types
+// from Makefile. Original package location is modernc.org/b.
+//
 // 2016-07-16: Update benchmark results to newer Go version. Add a note on
 // concurrency.
 //
