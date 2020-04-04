@@ -17,6 +17,7 @@ import (
 	"github.com/jtolds/jam/pkg/blobs"
 	"github.com/jtolds/jam/pkg/enc"
 	"github.com/jtolds/jam/pkg/manifest"
+	"github.com/jtolds/jam/pkg/mount"
 	"github.com/jtolds/jam/pkg/session"
 	"github.com/jtolds/jam/pkg/streams"
 	"github.com/jtolds/jam/pkg/utils"
@@ -33,10 +34,16 @@ var (
 		ShortUsage: fmt.Sprintf("%s snaps", os.Args[0]),
 		Exec:       Snaps,
 	}
+	cmdMount = &ffcli.Command{
+		Name:       "mount",
+		ShortHelp:  "mounts snap as read-only filesystem",
+		ShortUsage: fmt.Sprintf("%s mount <target>", os.Args[0]),
+		Exec:       Mount,
+	}
 	cmdRoot = &ffcli.Command{
 		ShortHelp:   "jam preserves your data",
 		ShortUsage:  fmt.Sprintf("%s <subcommand>", os.Args[0]),
-		Subcommands: []*ffcli.Command{cmdTest, cmdSnaps},
+		Subcommands: []*ffcli.Command{cmdTest, cmdSnaps, cmdMount},
 		Exec:        help,
 	}
 )
@@ -65,6 +72,10 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 }
 
 func Snaps(ctx context.Context, args []string) error {
+	if len(args) != 0 {
+		return flag.ErrHelp
+	}
+
 	mgr, mgrClose, err := getManager(ctx)
 	if err != nil {
 		return err
@@ -93,6 +104,10 @@ func Snaps(ctx context.Context, args []string) error {
 }
 
 func Test(ctx context.Context, args []string) error {
+	if len(args) != 0 {
+		return flag.ErrHelp
+	}
+
 	mgr, close, err := getManager(ctx)
 	if err != nil {
 		return err
@@ -136,4 +151,24 @@ func Test(ctx context.Context, args []string) error {
 			return err
 		})
 	})
+}
+
+func Mount(ctx context.Context, args []string) error {
+	if len(args) != 1 {
+		return flag.ErrHelp
+	}
+
+	mgr, mgrClose, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+	defer mgrClose()
+
+	snap, err := mgr.LatestSnapshot(ctx)
+	if err != nil {
+		return err
+	}
+	defer snap.Close()
+
+	return mount.Mount(ctx, snap, args[0])
 }
