@@ -18,8 +18,9 @@ type concat struct {
 
 func newConcat(entries ...*entry) *concat {
 	c := &concat{
-		entries: entries,
-		blob:    idGen(),
+		entries:       entries,
+		currentStream: &manifest.Stream{},
+		blob:          idGen(),
 	}
 	c.advance()
 	return c
@@ -58,7 +59,7 @@ func (c *concat) capRange() {
 			c.currentStream.Ranges = c.currentStream.Ranges[:rangeCount-1]
 		}
 		c.current.cb(c.currentStream)
-		c.currentStream = nil
+		c.currentStream = &manifest.Stream{}
 	}
 }
 

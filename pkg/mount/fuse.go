@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/hanwen/go-fuse/v2/fs"
@@ -18,6 +19,7 @@ import (
 )
 
 type fuseHandle struct {
+	mtx    sync.Mutex
 	stream *streams.Stream
 }
 
@@ -25,12 +27,17 @@ var _ fs.FileReader = (*fuseHandle)(nil)
 var _ fs.FileReleaser = (*fuseHandle)(nil)
 
 func (h *fuseHandle) Read(ctx context.Context, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
+	h.mtx.Lock()
+	defer h.mtx.Unlock()
 	_, err := h.stream.Seek(off, io.SeekStart)
 	if err != nil {
 		log.Printf("error: %+v", err)
 		return nil, syscall.EIO
 	}
 	n, err := h.stream.Read(dest)
+	if err == io.EOF {
+		err = nil
+	}
 	if err != nil {
 		log.Printf("error: %+v", err)
 		return nil, syscall.EIO
@@ -39,6 +46,8 @@ func (h *fuseHandle) Read(ctx context.Context, dest []byte, off int64) (fuse.Rea
 }
 
 func (h *fuseHandle) Release(ctx context.Context) syscall.Errno {
+	h.mtx.Lock()
+	defer h.mtx.Unlock()
 	err := h.stream.Close()
 	if err != nil {
 		log.Printf("error: %+v", err)

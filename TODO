@@ -1,0 +1,4 @@
+make both a default config path and flag work
+figure out why dumping a huge directory in lossy
+other TODOs in comments
+support case-insensitive backing filesystems
