@@ -88,6 +88,7 @@ func (f *Stream) Close() error {
 }
 
 func (f *Stream) Seek(offset int64, whence int) (int64, error) {
+	oldOffset := f.currentOffset
 	switch whence {
 	case io.SeekStart:
 		f.currentOffset = offset
@@ -98,6 +99,13 @@ func (f *Stream) Seek(offset int64, whence int) (int64, error) {
 	default:
 		return f.currentOffset, fmt.Errorf("invalid whence")
 	}
-	// the Close is important!
-	return f.currentOffset, f.Close()
+	if oldOffset != f.currentOffset {
+		err := f.Close()
+		if err != nil {
+			return f.currentOffset, err
+		}
+	}
+	return f.currentOffset, nil
 }
+
+func (f *Stream) Length() int64 { return f.length }
