@@ -48,17 +48,27 @@ func newSession(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Sto
 	return s
 }
 
+type ListEntry struct {
+	Path   string
+	Prefix bool
+	Meta   *manifest.Metadata
+
+	backend backends.Backend
+	data    *manifest.Stream
+}
+
+func (e *ListEntry) Stream(ctx context.Context) (*streams.Stream, error) {
+	return streams.Open(ctx, e.backend, e.data)
+}
+
 func (s *Session) List(ctx context.Context, prefix, delimiter string,
-	cb func(ctx context.Context, path string, meta *manifest.Metadata, data *streams.Stream) error) error {
-	// TODO: it's weird that we're passing an open stream here. we need to make it way clearer
-	// how to deal with the stream life cycle somehow.
+	cb func(ctx context.Context, entry *ListEntry) error) error {
 	return s.paths.List(ctx, prefix, delimiter,
 		func(ctx context.Context, path string, content *manifest.Content) error {
-			stream, err := streams.Open(ctx, s.backend, content.Data)
-			if err != nil {
-				return err
+			if content == nil {
+				return cb(ctx, &ListEntry{Path: path, Prefix: true})
 			}
-			return cb(ctx, path, content.Metadata, stream)
+			return cb(ctx, &ListEntry{Path: path, Meta: content.Metadata, backend: s.backend, data: content.Data})
 		})
 }
 
@@ -187,6 +197,7 @@ func (s *Session) Commit(ctx context.Context) (err error) {
 	defer func() {
 		err = errs.Combine(err, rc.Close())
 	}()
+	// TODO: make sure this timestamp doesn't already exist!
 	return s.backend.Put(ctx, timestampToPath(time.Now()), rc)
 }
 

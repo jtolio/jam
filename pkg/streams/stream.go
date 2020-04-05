@@ -21,6 +21,7 @@ type Stream struct {
 var _ io.ReadCloser = (*Stream)(nil)
 var _ io.Seeker = (*Stream)(nil)
 
+// Open returns a Stream ready for reading. Close only needs to be called if
 func Open(ctx context.Context, backend backends.Backend, stream *manifest.Stream) (*Stream, error) {
 	var length int64
 	for _, r := range stream.Ranges {
@@ -32,6 +33,18 @@ func Open(ctx context.Context, backend backends.Backend, stream *manifest.Stream
 		length:  length,
 		ctx:     ctx,
 	}, nil
+}
+
+// Fork is safe to do on a closed or open stream and returns a new valid
+// stream at the same offset
+func (f *Stream) Fork(ctx context.Context) *Stream {
+	return &Stream{
+		backend:       f.backend,
+		stream:        f.stream,
+		currentOffset: f.currentOffset,
+		length:        f.length,
+		ctx:           ctx,
+	}
 }
 
 func (f *Stream) Read(p []byte) (n int, err error) {
@@ -85,5 +98,6 @@ func (f *Stream) Seek(offset int64, whence int) (int64, error) {
 	default:
 		return f.currentOffset, fmt.Errorf("invalid whence")
 	}
+	// the Close is important!
 	return f.currentOffset, f.Close()
 }

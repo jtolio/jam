@@ -16,10 +16,8 @@ import (
 	"github.com/jtolds/jam/backends/fs"
 	"github.com/jtolds/jam/pkg/blobs"
 	"github.com/jtolds/jam/pkg/enc"
-	"github.com/jtolds/jam/pkg/manifest"
 	"github.com/jtolds/jam/pkg/mount"
 	"github.com/jtolds/jam/pkg/session"
-	"github.com/jtolds/jam/pkg/streams"
 	"github.com/jtolds/jam/pkg/utils"
 )
 
@@ -89,8 +87,7 @@ func Snaps(ctx context.Context, args []string) error {
 		}
 		defer snapshot.Close()
 		var fileCount int64
-		err = snapshot.List(ctx, "", "", func(ctx context.Context, path string, metadata *manifest.Metadata, data *streams.Stream) error {
-			defer data.Close()
+		err = snapshot.List(ctx, "", "", func(ctx context.Context, entry *session.ListEntry) error {
 			fileCount++
 			return nil
 		})
@@ -114,22 +111,22 @@ func Test(ctx context.Context, args []string) error {
 	}
 	defer close()
 
-	session, err := mgr.NewSession(ctx)
+	sess, err := mgr.NewSession(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = session.PutFile(ctx, "/etc/motd-"+fmt.Sprint(time.Now().Unix()), time.Now(), time.Now(), 0600, ioutil.NopCloser(bytes.NewReader([]byte("hello world\n"))))
+	err = sess.PutFile(ctx, "/etc/motd-"+fmt.Sprint(time.Now().Unix()), time.Now(), time.Now(), 0600, ioutil.NopCloser(bytes.NewReader([]byte("hello world\n"))))
 	if err != nil {
-		session.Close()
+		sess.Close()
 		return err
 	}
-	err = session.Commit(ctx)
+	err = sess.Commit(ctx)
 	if err != nil {
-		session.Close()
+		sess.Close()
 		return err
 	}
-	err = session.Close()
+	err = sess.Close()
 	if err != nil {
 		return err
 	}
@@ -142,11 +139,15 @@ func Test(ctx context.Context, args []string) error {
 		}
 		defer snapshot.Close()
 
-		return snapshot.List(ctx, "", "", func(ctx context.Context, path string, metadata *manifest.Metadata, data *streams.Stream) error {
+		return snapshot.List(ctx, "", "", func(ctx context.Context, entry *session.ListEntry) error {
+			fmt.Println("  ", entry.Path, entry.Meta)
+			data, err := entry.Stream(ctx)
+			if err != nil {
+				return err
+			}
 			defer data.Close()
-			fmt.Println("  ", path, metadata)
 			fmt.Println("===============")
-			_, err := io.Copy(os.Stdout, data)
+			_, err = io.Copy(os.Stdout, data)
 			fmt.Println("===============")
 			return err
 		})
