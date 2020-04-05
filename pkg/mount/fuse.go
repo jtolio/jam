@@ -171,7 +171,10 @@ type Session struct {
 }
 
 func Mount(ctx context.Context, snap session.Snapshot, target string) (*Session, error) {
-	server, err := fs.Mount(target, &fuseNode{snap: snap}, nil)
+	server, err := fs.Mount(target, &fuseNode{snap: snap}, &fs.Options{
+		MountOptions: fuse.MountOptions{
+			DisableXAttrs: true,
+		}})
 	if err != nil {
 		return nil, err
 	}
