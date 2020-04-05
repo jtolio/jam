@@ -59,10 +59,18 @@ var _ fs.NodeLookuper = (*fuseNode)(nil)
 var _ fs.NodeReaddirer = (*fuseNode)(nil)
 var _ fs.NodeOpener = (*fuseNode)(nil)
 var _ fs.NodeReadlinker = (*fuseNode)(nil)
+var _ fs.NodeGetattrer = (*fuseNode)(nil)
+
+func fullpath(parent, name string) string {
+	if parent == "" {
+		return name
+	}
+	return parent + "/" + name
+}
 
 func (n *fuseNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (
 	*fs.Inode, syscall.Errno) {
-	child := n.path + "/" + name
+	child := fullpath(n.path, name)
 	meta, data, err := n.snap.Open(ctx, child)
 	if err != nil {
 		if errors.Is(err, session.ErrNotFound) {
@@ -74,14 +82,13 @@ func (n *fuseNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) 
 		log.Printf("error: %+v", err)
 		return nil, syscall.EIO
 	}
-
-	out.Size = uint64(data.Length())
 	err = data.Close()
 	if err != nil {
 		log.Printf("error: %+v", err)
 		return nil, syscall.EIO
 	}
 
+	out.Size = uint64(data.Length())
 	out.Mtime = uint64(meta.Modified.Seconds)
 
 	mode := uint32(syscall.S_IFREG)
@@ -103,9 +110,19 @@ func (n *fuseNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) 
 	}, fs.StableAttr{Mode: mode}), 0
 }
 
+func (n *fuseNode) Getattr(ctx context.Context, _ fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
+	if n.meta != nil {
+		out.Mtime = uint64(n.meta.Modified.Seconds)
+	}
+	if n.data != nil {
+		out.Size = uint64(n.data.Length())
+	}
+	return 0
+}
+
 func (n *fuseNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 	var entries []fuse.DirEntry
-	err := n.snap.List(ctx, n.path+"/", "/",
+	err := n.snap.List(ctx, fullpath(n.path, ""), "/",
 		func(ctx context.Context, entry *session.ListEntry) error {
 			mode := uint32(fuse.S_IFDIR)
 			if !entry.Prefix {
@@ -120,7 +137,7 @@ func (n *fuseNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 			}
 			entries = append(entries, fuse.DirEntry{
 				Mode: mode,
-				Name: strings.TrimPrefix(entry.Path, n.path+"/"),
+				Name: strings.TrimPrefix(entry.Path, fullpath(n.path, "")),
 			})
 			return nil
 		})
@@ -140,11 +157,27 @@ func (n *fuseNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
 	return []byte(n.meta.LinkTarget), 0
 }
 
-func Mount(ctx context.Context, snap session.Snapshot, target string) error {
+type Session struct {
+	server *fuse.Server
+}
+
+func Mount(ctx context.Context, snap session.Snapshot, target string) (*Session, error) {
 	server, err := fs.Mount(target, &fuseNode{snap: snap}, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	server.Serve()
-	return nil
+	err = server.WaitMount()
+	if err != nil {
+		server.Unmount()
+		return nil, err
+	}
+	return &Session{server: server}, nil
+}
+
+func (s *Session) Wait() {
+	s.server.Serve()
+}
+
+func (s *Session) Close() error {
+	return s.server.Unmount()
 }
