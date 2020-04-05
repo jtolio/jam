@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"os/user"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
+	ff "github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffcli"
 
 	"github.com/jtolds/jam/backends/fs"
@@ -22,37 +25,66 @@ import (
 )
 
 var (
+	sysFlags            = flag.NewFlagSet("", flag.ExitOnError)
+	sysFlagBlockSize    = sysFlags.Int("enc.block-size", 16*1024, "encryption block size")
+	sysFlagRootKey      = sysFlags.String("enc.root-key", "", "root encryption key")
+	sysFlagStore        = sysFlags.String("store", "test-data", "place to store data")
+	sysFlagBlobSize     = sysFlags.Int64("blobs.size", 64*1024*1024, "target blob size")
+	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1024, "max number of objects to stage before flushing")
+
+	readFlags        = flag.NewFlagSet("", flag.ExitOnError)
+	readFlagSnapshot = readFlags.String("snap", "latest", "which snapshot to use")
+
 	cmdSnaps = &ffcli.Command{
 		Name:       "snaps",
 		ShortHelp:  "lists snapshots",
-		ShortUsage: fmt.Sprintf("%s snaps", os.Args[0]),
+		ShortUsage: fmt.Sprintf("%s [opts] snaps", os.Args[0]),
 		Exec:       Snaps,
 	}
 	cmdMount = &ffcli.Command{
 		Name:       "mount",
 		ShortHelp:  "mounts snap as read-only filesystem",
-		ShortUsage: fmt.Sprintf("%s mount <target>", os.Args[0]),
+		ShortUsage: fmt.Sprintf("%s [opts] mount [opts] <target>", os.Args[0]),
+		FlagSet:    readFlags,
 		Exec:       Mount,
-	}
-	cmdStore = &ffcli.Command{
-		Name:       "store",
-		ShortHelp:  "store adds the given source directory to a new snapshot, forked from the latest",
-		ShortUsage: fmt.Sprintf("%s store <source-dir> [<target-prefix>]", os.Args[0]),
-		Exec:       Store,
 	}
 	cmdList = &ffcli.Command{
 		Name:       "ls",
 		ShortHelp:  "ls lists files in the given snapshot",
-		ShortUsage: fmt.Sprintf("%s ls", os.Args[0]),
+		ShortUsage: fmt.Sprintf("%s [opts] ls [opts]", os.Args[0]),
+		FlagSet:    readFlags,
 		Exec:       List,
+	}
+	cmdStore = &ffcli.Command{
+		Name:       "store",
+		ShortHelp:  "store adds the given source directory to a new snapshot, forked from the latest",
+		ShortUsage: fmt.Sprintf("%s [opts] store <source-dir> [<target-prefix>]", os.Args[0]),
+		Exec:       Store,
 	}
 	cmdRoot = &ffcli.Command{
 		ShortHelp:   "jam preserves your data",
-		ShortUsage:  fmt.Sprintf("%s <subcommand>", os.Args[0]),
+		ShortUsage:  fmt.Sprintf("%s [opts] <subcommand> [opts]", os.Args[0]),
 		Subcommands: []*ffcli.Command{cmdStore, cmdSnaps, cmdMount, cmdList},
-		Exec:        help,
+		FlagSet:     sysFlags,
+		Options: []ff.Option{
+			ff.WithAllowMissingConfigFile(true),
+			ff.WithConfigFileParser(ff.PlainParser),
+			ff.WithConfigFile(defaultConfigFile()),
+		},
+		Exec: help,
 	}
 )
+
+func defaultConfigFile() string {
+	u, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+	if u.HomeDir == "" {
+		panic("no homedir found")
+	}
+	return filepath.Join(u.HomeDir, ".jam", "jam.conf")
+}
 
 func help(ctx context.Context, args []string) error { return flag.ErrHelp }
 
@@ -68,13 +100,15 @@ func main() {
 }
 
 func getManager(ctx context.Context) (mgr *session.Manager, close func() error, err error) {
-	// TODO: make this all configurable!
+	if *sysFlagRootKey == "" {
+		return nil, nil, fmt.Errorf("invalid configuration, no root key specified")
+	}
 	backend := enc.NewEncWrapper(
-		enc.NewSecretboxCodec(16*1024),
-		enc.NewHMACKeyGenerator([]byte("hello")),
-		fs.NewFS("test-data"),
+		enc.NewSecretboxCodec(*sysFlagBlockSize),
+		enc.NewHMACKeyGenerator([]byte(*sysFlagRootKey)),
+		fs.NewFS(*sysFlagStore),
 	)
-	blobs := blobs.NewStore(backend, 64*1024*1024, 1024)
+	blobs := blobs.NewStore(backend, *sysFlagBlobSize, *sysFlagMaxUnflushed)
 	return session.NewManager(utils.DefaultLogger, backend, blobs), blobs.Close, nil
 }
 
@@ -164,8 +198,18 @@ func Store(ctx context.Context, args []string) error {
 	return nil
 }
 
+func getReadSnapshot(ctx context.Context, mgr *session.Manager) (session.Snapshot, error) {
+	if *readFlagSnapshot == "" || *readFlagSnapshot == "latest" {
+		return mgr.LatestSnapshot(ctx)
+	}
+	nano, err := strconv.ParseInt(*readFlagSnapshot, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid snapshot value: %q", *readFlagSnapshot)
+	}
+	return mgr.OpenSnapshot(ctx, time.Unix(0, nano))
+}
+
 func Mount(ctx context.Context, args []string) error {
-	// TODO: allow specification of other snapshots
 	if len(args) != 1 {
 		return flag.ErrHelp
 	}
@@ -176,7 +220,7 @@ func Mount(ctx context.Context, args []string) error {
 	}
 	defer mgrClose()
 
-	snap, err := mgr.LatestSnapshot(ctx)
+	snap, err := getReadSnapshot(ctx, mgr)
 	if err != nil {
 		return err
 	}
@@ -201,7 +245,6 @@ func Mount(ctx context.Context, args []string) error {
 }
 
 func List(ctx context.Context, args []string) error {
-	// TODO: allow specification of other snapshots
 	if len(args) != 0 {
 		return flag.ErrHelp
 	}
@@ -212,7 +255,7 @@ func List(ctx context.Context, args []string) error {
 	}
 	defer mgrClose()
 
-	snap, err := mgr.LatestSnapshot(ctx)
+	snap, err := getReadSnapshot(ctx, mgr)
 	if err != nil {
 		return err
 	}
