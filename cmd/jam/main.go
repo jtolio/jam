@@ -30,7 +30,8 @@ var (
 	sysFlagRootKey      = sysFlags.String("enc.root-key", "", "root encryption key")
 	sysFlagStore        = sysFlags.String("store", "test-data", "place to store data")
 	sysFlagBlobSize     = sysFlags.Int64("blobs.size", 64*1024*1024, "target blob size")
-	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1024, "max number of objects to stage before flushing")
+	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 2048,
+		"max number of objects to stage before flushing (requires file descriptor limit)")
 
 	readFlags        = flag.NewFlagSet("", flag.ExitOnError)
 	readFlagSnapshot = readFlags.String("snap", "latest", "which snapshot to use")
@@ -239,9 +240,7 @@ func Mount(ctx context.Context, args []string) error {
 		sess.Close()
 	}()
 
-	sess.Wait()
-
-	return nil
+	return sess.Serve()
 }
 
 func List(ctx context.Context, args []string) error {
