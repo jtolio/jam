@@ -26,6 +26,24 @@ func newConcat(entries ...*entry) *concat {
 	return c
 }
 
+func (c *concat) advance() {
+	c.capRange()
+	if len(c.entries) == 0 {
+		c.current = nil
+	} else {
+		c.current = c.entries[0]
+		c.entries = c.entries[1:]
+		c.currentStream = &manifest.Stream{
+			Ranges: []*manifest.Range{
+				&manifest.Range{
+					Blob:   c.blob,
+					Offset: c.offset,
+				},
+			},
+		}
+	}
+}
+
 func (c *concat) Read(p []byte) (n int, err error) {
 	if c.current == nil {
 		return 0, io.EOF
@@ -60,24 +78,6 @@ func (c *concat) capRange() {
 		}
 		c.current.cb(c.currentStream)
 		c.currentStream = &manifest.Stream{}
-	}
-}
-
-func (c *concat) advance() {
-	c.capRange()
-	if len(c.entries) == 0 {
-		c.current = nil
-	} else {
-		c.current = c.entries[0]
-		c.entries = c.entries[1:]
-		c.currentStream = &manifest.Stream{
-			Ranges: []*manifest.Range{
-				&manifest.Range{
-					Blob:   c.blob,
-					Offset: c.offset,
-				},
-			},
-		}
 	}
 }
 
