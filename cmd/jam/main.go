@@ -26,11 +26,12 @@ import (
 
 var (
 	sysFlags            = flag.NewFlagSet("", flag.ExitOnError)
+	sysFlagConfig       = sysFlags.String("config", defaultConfigFile(), "path to config file")
 	sysFlagBlockSize    = sysFlags.Int("enc.block-size", 16*1024, "encryption block size")
 	sysFlagRootKey      = sysFlags.String("enc.root-key", "", "root encryption key")
 	sysFlagStore        = sysFlags.String("store", "test-data", "place to store data")
 	sysFlagBlobSize     = sysFlags.Int64("blobs.size", 64*1024*1024, "target blob size")
-	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 2048,
+	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1000,
 		"max number of objects to stage before flushing (requires file descriptor limit)")
 
 	readFlags        = flag.NewFlagSet("", flag.ExitOnError)
@@ -70,7 +71,7 @@ var (
 		Options: []ff.Option{
 			ff.WithAllowMissingConfigFile(true),
 			ff.WithConfigFileParser(ff.PlainParser),
-			ff.WithConfigFile(defaultConfigFile()),
+			ff.WithConfigFileFlag("config"),
 		},
 		Exec: help,
 	}

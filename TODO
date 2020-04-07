@@ -1,7 +1,4 @@
-make both a default config path and flag work
-figure out why dumping a huge directory in lossy
-  (go/dist/1.13.3/pkg/linux_amd64/crypto/tls.a is an example)
+fix concat with cuts
 other TODOs in comments
-support case-insensitive backing filesystems
 replace all
 race detector

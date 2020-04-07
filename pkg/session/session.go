@@ -197,7 +197,9 @@ func (s *Session) Commit(ctx context.Context) (err error) {
 	defer func() {
 		err = errs.Combine(err, rc.Close())
 	}()
-	// TODO: make sure this timestamp doesn't already exist!
+	// TODO: make sure this timestamp is strictly newer than all previous
+	// timestamps, and make sure you can't delete the newest timestamp,
+	// to avoid key reuse with different snapshots with the same timestamp
 	return s.backend.Put(ctx, timestampToPath(time.Now()), rc)
 }
 
