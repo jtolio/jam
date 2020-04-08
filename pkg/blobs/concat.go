@@ -9,54 +9,53 @@ import (
 )
 
 type concat struct {
-	entries       []*entry
-	current       *entry
-	currentStream *manifest.Stream
-	offset        int64
-	blob          string
+	unprocessed []*entry
+	processing  *entry
+
+	stagedStream *manifest.Stream
+	stagedRange  *manifest.Range
+
+	offset int64
+	blob   string
 }
 
 func newConcat(entries ...*entry) *concat {
 	c := &concat{
-		entries:       entries,
-		currentStream: &manifest.Stream{},
-		blob:          idGen(),
+		unprocessed: entries,
 	}
+	c.Cut()
 	c.advance()
 	return c
 }
 
 func (c *concat) advance() {
-	c.capRange()
-	if len(c.entries) == 0 {
-		c.current = nil
+	if c.processing != nil {
+		c.capRange()
+		c.processing.cb(c.stagedStream)
+	}
+	if len(c.unprocessed) > 0 {
+		c.processing = c.unprocessed[0]
+		c.unprocessed = c.unprocessed[1:]
+		c.stagedStream = &manifest.Stream{}
+		c.resetRange()
 	} else {
-		c.current = c.entries[0]
-		c.entries = c.entries[1:]
-		c.currentStream = &manifest.Stream{
-			Ranges: []*manifest.Range{
-				&manifest.Range{
-					Blob:   c.blob,
-					Offset: c.offset,
-				},
-			},
-		}
+		c.processing = nil
 	}
 }
 
 func (c *concat) Read(p []byte) (n int, err error) {
-	if c.current == nil {
+	if c.processing == nil {
 		return 0, io.EOF
 	}
 	for {
-		n, err = c.current.source.Read(p)
+		n, err = c.processing.source.Read(p)
 		c.offset += int64(n)
 		if err != nil {
 			if err != io.EOF {
 				return n, errs.Wrap(err)
 			}
 			c.advance()
-			if c.current == nil {
+			if c.processing == nil {
 				return n, io.EOF
 			}
 		}
@@ -67,32 +66,27 @@ func (c *concat) Read(p []byte) (n int, err error) {
 }
 
 func (c *concat) capRange() {
-	if c.current != nil {
-		rangeCount := len(c.currentStream.Ranges)
-		length := c.offset -
-			c.currentStream.Ranges[rangeCount-1].Offset
-		if length > 0 {
-			c.currentStream.Ranges[rangeCount-1].Length = length
-		} else {
-			c.currentStream.Ranges = c.currentStream.Ranges[:rangeCount-1]
-		}
-		c.current.cb(c.currentStream)
-		c.currentStream = &manifest.Stream{}
+	c.stagedRange.Length = c.offset - c.stagedRange.Offset
+	if c.stagedRange.Length > 0 {
+		c.stagedStream.Ranges = append(c.stagedStream.Ranges, c.stagedRange)
 	}
 }
 
-func (c *concat) EOF() bool    { return c.current == nil }
+func (c *concat) resetRange() {
+	c.stagedRange = &manifest.Range{
+		Blob:   c.blob,
+		Offset: c.offset,
+	}
+}
+
+func (c *concat) EOF() bool    { return c.processing == nil }
 func (c *concat) Blob() string { return c.blob }
 
 func (c *concat) Cut() {
-	c.capRange()
+	if c.stagedRange != nil {
+		c.capRange()
+		defer c.resetRange()
+	}
 	c.offset = 0
 	c.blob = idGen()
-	if c.current != nil {
-		c.currentStream.Ranges = append(c.currentStream.Ranges,
-			&manifest.Range{
-				Blob:   c.blob,
-				Offset: c.offset,
-			})
-	}
 }

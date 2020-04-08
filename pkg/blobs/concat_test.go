@@ -95,7 +95,7 @@ func TestConcatTwoCutBefore(t *testing.T) {
 			calls2++
 			require.Equal(t, 1, calls2)
 			require.Equal(t, 1, len(m.Ranges))
-			require.Equal(t, int64(6), m.Ranges[0].Offset)
+			require.Equal(t, int64(2), m.Ranges[0].Offset)
 			require.Equal(t, int64(6), m.Ranges[0].Length)
 		},
 	})
@@ -165,8 +165,8 @@ func TestConcatTwoCutAfter(t *testing.T) {
 			require.Equal(t, 2, len(m.Ranges))
 			require.Equal(t, int64(6), m.Ranges[0].Offset)
 			require.Equal(t, int64(2), m.Ranges[0].Length)
-			require.Equal(t, int64(0), m.Ranges[0].Offset)
-			require.Equal(t, int64(4), m.Ranges[0].Length)
+			require.Equal(t, int64(0), m.Ranges[1].Offset)
+			require.Equal(t, int64(4), m.Ranges[1].Length)
 			require.NotEqual(t, m.Ranges[0].Blob, m.Ranges[1].Blob)
 		},
 	})
