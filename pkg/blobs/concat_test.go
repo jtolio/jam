@@ -29,13 +29,15 @@ func TestConcatEmpty(t *testing.T) {
 }
 
 func TestConcatSimple(t *testing.T) {
-	var calls int
+	var streams []*manifest.Stream
+	defer func() {
+		require.Equal(t, 1, len(streams))
+		require.Equal(t, 1, len(streams[0].Ranges))
+	}()
 	c := newConcat(&entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("hello"))),
 		cb: func(m *manifest.Stream) {
-			calls++
-			require.Equal(t, 1, calls)
-			require.Equal(t, 1, len(m.Ranges))
+			streams = append(streams, m)
 			require.Equal(t, int64(0), m.Ranges[0].Offset)
 			require.Equal(t, int64(5), m.Ranges[0].Length)
 		},
@@ -48,13 +50,19 @@ func TestConcatSimple(t *testing.T) {
 }
 
 func TestConcatTwo(t *testing.T) {
+	var streams []*manifest.Stream
+	defer func() {
+		require.Equal(t, 2, len(streams))
+		require.Equal(t, 1, len(streams[0].Ranges))
+		require.Equal(t, 1, len(streams[1].Ranges))
+	}()
 	var calls1, calls2 int
 	c := newConcat(&entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("hello "))),
 		cb: func(m *manifest.Stream) {
 			calls1++
+			streams = append(streams, m)
 			require.Equal(t, 1, calls1)
-			require.Equal(t, 1, len(m.Ranges))
 			require.Equal(t, int64(0), m.Ranges[0].Offset)
 			require.Equal(t, int64(6), m.Ranges[0].Length)
 		},
@@ -62,8 +70,8 @@ func TestConcatTwo(t *testing.T) {
 		source: ioutil.NopCloser(bytes.NewReader([]byte("world!"))),
 		cb: func(m *manifest.Stream) {
 			calls2++
+			streams = append(streams, m)
 			require.Equal(t, 1, calls2)
-			require.Equal(t, 1, len(m.Ranges))
 			require.Equal(t, int64(6), m.Ranges[0].Offset)
 			require.Equal(t, int64(6), m.Ranges[0].Length)
 		},
@@ -76,11 +84,18 @@ func TestConcatTwo(t *testing.T) {
 }
 
 func TestConcatTwoCutBefore(t *testing.T) {
+	var streams []*manifest.Stream
+	defer func() {
+		require.Equal(t, 2, len(streams))
+		require.Equal(t, 2, len(streams[0].Ranges))
+		require.Equal(t, 1, len(streams[1].Ranges))
+	}()
 	var calls1, calls2 int
 	c := newConcat(&entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("hello "))),
 		cb: func(m *manifest.Stream) {
 			calls1++
+			streams = append(streams, m)
 			require.Equal(t, 1, calls1)
 			require.Equal(t, 2, len(m.Ranges))
 			require.Equal(t, int64(0), m.Ranges[0].Offset)
@@ -93,6 +108,7 @@ func TestConcatTwoCutBefore(t *testing.T) {
 		source: ioutil.NopCloser(bytes.NewReader([]byte("world!"))),
 		cb: func(m *manifest.Stream) {
 			calls2++
+			streams = append(streams, m)
 			require.Equal(t, 1, calls2)
 			require.Equal(t, 1, len(m.Ranges))
 			require.Equal(t, int64(2), m.Ranges[0].Offset)
@@ -113,13 +129,19 @@ func TestConcatTwoCutBefore(t *testing.T) {
 }
 
 func TestConcatTwoCutOn(t *testing.T) {
+	var streams []*manifest.Stream
+	defer func() {
+		require.Equal(t, 2, len(streams))
+		require.Equal(t, 1, len(streams[0].Ranges))
+		require.Equal(t, 1, len(streams[1].Ranges))
+	}()
 	var calls1, calls2 int
 	c := newConcat(&entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("hello "))),
 		cb: func(m *manifest.Stream) {
 			calls1++
+			streams = append(streams, m)
 			require.Equal(t, 1, calls1)
-			require.Equal(t, 1, len(m.Ranges))
 			require.Equal(t, int64(0), m.Ranges[0].Offset)
 			require.Equal(t, int64(6), m.Ranges[0].Length)
 		},
@@ -127,8 +149,8 @@ func TestConcatTwoCutOn(t *testing.T) {
 		source: ioutil.NopCloser(bytes.NewReader([]byte("world!"))),
 		cb: func(m *manifest.Stream) {
 			calls2++
+			streams = append(streams, m)
 			require.Equal(t, 1, calls2)
-			require.Equal(t, 1, len(m.Ranges))
 			require.Equal(t, int64(0), m.Ranges[0].Offset)
 			require.Equal(t, int64(6), m.Ranges[0].Length)
 		},
@@ -147,11 +169,18 @@ func TestConcatTwoCutOn(t *testing.T) {
 }
 
 func TestConcatTwoCutAfter(t *testing.T) {
+	var streams []*manifest.Stream
+	defer func() {
+		require.Equal(t, 2, len(streams))
+		require.Equal(t, 1, len(streams[0].Ranges))
+		require.Equal(t, 2, len(streams[1].Ranges))
+	}()
 	var calls1, calls2 int
 	c := newConcat(&entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("hello "))),
 		cb: func(m *manifest.Stream) {
 			calls1++
+			streams = append(streams, m)
 			require.Equal(t, 1, calls1)
 			require.Equal(t, 1, len(m.Ranges))
 			require.Equal(t, int64(0), m.Ranges[0].Offset)
@@ -161,6 +190,7 @@ func TestConcatTwoCutAfter(t *testing.T) {
 		source: ioutil.NopCloser(bytes.NewReader([]byte("world!"))),
 		cb: func(m *manifest.Stream) {
 			calls2++
+			streams = append(streams, m)
 			require.Equal(t, 1, calls2)
 			require.Equal(t, 2, len(m.Ranges))
 			require.Equal(t, int64(6), m.Ranges[0].Offset)

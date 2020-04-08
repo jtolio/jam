@@ -32,6 +32,7 @@ func (c *concat) advance() {
 	if c.processing != nil {
 		c.capRange()
 		c.processing.cb(c.stagedStream)
+		c.stagedStream = nil
 	}
 	if len(c.unprocessed) > 0 {
 		c.processing = c.unprocessed[0]
@@ -70,6 +71,7 @@ func (c *concat) capRange() {
 	if c.stagedRange.Length > 0 {
 		c.stagedStream.Ranges = append(c.stagedStream.Ranges, c.stagedRange)
 	}
+	c.stagedRange = nil
 }
 
 func (c *concat) resetRange() {
@@ -83,7 +85,7 @@ func (c *concat) EOF() bool    { return c.processing == nil }
 func (c *concat) Blob() string { return c.blob }
 
 func (c *concat) Cut() {
-	if c.stagedRange != nil {
+	if c.processing != nil {
 		c.capRange()
 		defer c.resetRange()
 	}
