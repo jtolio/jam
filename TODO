@@ -1,5 +1,4 @@
 fix ctrl-c unmount
-still some bug in large directories
+still some nondeterministic bug in large directories
 other TODOs in comments
 replace all
-race detector
