@@ -4,7 +4,7 @@ features:
   integrity check
   gc
 backends:
-  storj
   s3
+  allow other backends to register themselves
 other TODOs in comments
 performance

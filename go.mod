@@ -9,4 +9,5 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/zeebo/errs v1.2.2
 	golang.org/x/crypto v0.0.0-20200403201458-baeed622b8d8
+	storj.io/uplink v1.0.3
 )

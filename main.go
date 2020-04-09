@@ -5,19 +5,26 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
+	"net/url"
 	"os"
 	"os/signal"
 	"os/user"
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	ff "github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/zeebo/errs"
+	"storj.io/uplink"
 
+	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/backends/fs"
+	"github.com/jtolds/jam/backends/storj"
 	"github.com/jtolds/jam/pkg/blobs"
 	"github.com/jtolds/jam/pkg/enc"
 	"github.com/jtolds/jam/pkg/mount"
@@ -27,15 +34,17 @@ import (
 
 var (
 	sysFlags      = flag.NewFlagSet("", flag.ExitOnError)
-	sysFlagConfig = sysFlags.String("config", filepath.Join(homeDir(), ".jam", "jam.conf"),
+	sysFlagConfig = sysFlags.String("config",
+		filepath.Join(homeDir(), ".jam", "jam.conf"),
 		"path to config file")
 	sysFlagBlockSize = sysFlags.Int("enc.block-size", 16*1024,
 		"encryption block size")
 	sysFlagPassphrase = sysFlags.String("enc.passphrase", "",
 		"encryption passphrase")
-	sysFlagStore = sysFlags.String("store", filepath.Join(homeDir(), ".jam", "storage"),
-		"place to store data")
-	sysFlagBlobSize = sysFlags.Int64("blobs.size", 64*1024*1024,
+	sysFlagStore = sysFlags.String("store",
+		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "storage")}).String(),
+		"place to store data. currently supports file://<path> and storj://<access>/<bucket>")
+	sysFlagBlobSize = sysFlags.Int64("blobs.size", 60*1024*1024,
 		"target blob size")
 	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1000,
 		"max number of objects to stage before flushing (requires file descriptor limit)")
@@ -123,13 +132,46 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 	if *sysFlagPassphrase == "" {
 		return nil, nil, fmt.Errorf("invalid configuration, no root key specified")
 	}
+
+	var store backends.Backend
+	var closers []io.Closer
+
+	u, err := url.Parse(*sysFlagStore)
+	if err != nil {
+		return nil, nil, err
+	}
+	switch u.Scheme {
+	case "file":
+		store = fs.NewFS(u.Path)
+	case "storj":
+		access, err := uplink.ParseAccess(u.Host)
+		if err != nil {
+			return nil, nil, err
+		}
+		p, err := uplink.OpenProject(ctx, access)
+		if err != nil {
+			return nil, nil, err
+		}
+		store = storj.New(p, strings.TrimPrefix(u.Path, "/"))
+		closers = append(closers, p)
+	default:
+		return nil, nil, fmt.Errorf("unknown storage scheme %q", u.Scheme)
+	}
+
 	backend := enc.NewEncWrapper(
 		enc.NewSecretboxCodec(*sysFlagBlockSize),
 		enc.NewHMACKeyGenerator([]byte(*sysFlagPassphrase)),
-		fs.NewFS(*sysFlagStore),
+		store,
 	)
 	blobs := blobs.NewStore(backend, *sysFlagBlobSize, *sysFlagMaxUnflushed)
-	return session.NewManager(utils.DefaultLogger, backend, blobs), blobs.Close, nil
+	closers = append(closers, blobs)
+	return session.NewManager(utils.DefaultLogger, backend, blobs), func() error {
+		var grp errs.Group
+		for _, c := range closers {
+			grp.Add(c.Close())
+		}
+		return grp.Err()
+	}, nil
 }
 
 func Snaps(ctx context.Context, args []string) error {
