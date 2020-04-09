@@ -5,7 +5,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"github.com/jtolds/jam/pkg/manifest"
+	"github.com/jtolds/jam/manifest"
 )
 
 type concat struct {

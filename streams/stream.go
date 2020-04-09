@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/pkg/manifest"
+	"github.com/jtolds/jam/manifest"
 )
 
 type Stream struct {

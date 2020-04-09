@@ -25,11 +25,11 @@ import (
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/backends/fs"
 	"github.com/jtolds/jam/backends/storj"
-	"github.com/jtolds/jam/pkg/blobs"
-	"github.com/jtolds/jam/pkg/enc"
-	"github.com/jtolds/jam/pkg/mount"
-	"github.com/jtolds/jam/pkg/session"
-	"github.com/jtolds/jam/pkg/utils"
+	"github.com/jtolds/jam/blobs"
+	"github.com/jtolds/jam/enc"
+	"github.com/jtolds/jam/mount"
+	"github.com/jtolds/jam/session"
+	"github.com/jtolds/jam/utils"
 )
 
 var (

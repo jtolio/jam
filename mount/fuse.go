@@ -15,9 +15,9 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 
-	"github.com/jtolds/jam/pkg/manifest"
-	"github.com/jtolds/jam/pkg/session"
-	"github.com/jtolds/jam/pkg/streams"
+	"github.com/jtolds/jam/manifest"
+	"github.com/jtolds/jam/session"
+	"github.com/jtolds/jam/streams"
 )
 
 type fuseHandle struct {

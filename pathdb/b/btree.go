@@ -9,7 +9,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/jtolds/jam/pkg/manifest"
+	"github.com/jtolds/jam/manifest"
 )
 
 const (

@@ -13,10 +13,10 @@ import (
 	"github.com/zeebo/errs"
 
 	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/pkg/blobs"
-	"github.com/jtolds/jam/pkg/manifest"
-	"github.com/jtolds/jam/pkg/pathdb"
-	"github.com/jtolds/jam/pkg/streams"
+	"github.com/jtolds/jam/blobs"
+	"github.com/jtolds/jam/manifest"
+	"github.com/jtolds/jam/pathdb"
+	"github.com/jtolds/jam/streams"
 )
 
 type opType int

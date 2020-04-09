@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/jtolds/jam/pkg/manifest"
+	"github.com/jtolds/jam/manifest"
 )
 
 var (
