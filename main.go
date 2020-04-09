@@ -43,11 +43,11 @@ var (
 		"encryption passphrase")
 	sysFlagStore = sysFlags.String("store",
 		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "storage")}).String(),
-		"place to store data. currently supports file://<path> and storj://<access>/<bucket>")
+		"place to store data. currently\n\tsupports:\n\t* file://<path>,\n\t* storj://<access>/<bucket>")
 	sysFlagBlobSize = sysFlags.Int64("blobs.size", 60*1024*1024,
 		"target blob size")
 	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1000,
-		"max number of objects to stage before flushing (requires file descriptor limit)")
+		"max number of objects to stage\n\tbefore flushing (requires file\n\tdescriptor limit)")
 
 	listFlags         = flag.NewFlagSet("", flag.ExitOnError)
 	listFlagSnapshot  = listFlags.String("snap", "latest", "which snapshot to use")
@@ -78,14 +78,14 @@ var (
 	}
 	cmdStore = &ffcli.Command{
 		Name:       "store",
-		ShortHelp:  "store adds the given source directory to a new snapshot, forked from the latest",
+		ShortHelp:  "store adds the given source directory to a new snapshot, forked from\n\tthe latest snapshot.",
 		ShortUsage: fmt.Sprintf("%s [opts] store <source-dir> [<target-prefix>]", os.Args[0]),
 		Exec:       Store,
 	}
 	cmdRename = &ffcli.Command{
 		Name: "rename",
-		ShortHelp: ("rename allows a regexp-based search and replace against all paths in the system, " +
-			"forked from the latest snapshot. See https://golang.org/pkg/regexp/#Regexp.ReplaceAllString " +
+		ShortHelp: ("rename allows a regexp-based search and replace against all paths in\n\tthe system, " +
+			"forked from the latest snapshot. See\n\thttps://golang.org/pkg/regexp/#Regexp.ReplaceAllString " +
 			"for semantics."),
 		ShortUsage: fmt.Sprintf("%s [opts] rename <regexp> <replacement>", os.Args[0]),
 		Exec:       Rename,
@@ -93,7 +93,7 @@ var (
 	cmdRoot = &ffcli.Command{
 		ShortHelp:   "jam preserves your data",
 		ShortUsage:  fmt.Sprintf("%s [opts] <subcommand> [opts]", os.Args[0]),
-		Subcommands: []*ffcli.Command{cmdStore, cmdSnaps, cmdMount, cmdList, cmdRename},
+		Subcommands: []*ffcli.Command{cmdList, cmdMount, cmdRename, cmdSnaps, cmdStore},
 		FlagSet:     sysFlags,
 		Options: []ff.Option{
 			ff.WithAllowMissingConfigFile(true),
