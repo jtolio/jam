@@ -6,6 +6,7 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"regexp"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -104,6 +105,7 @@ func (db *DB) List(ctx context.Context, prefix, delimiter string,
 	var lastContent *manifest.Content
 	lastSet := false
 	it, _ := db.tree.Seek(prefix)
+
 	for {
 		path, content, err := it.Next()
 		if err != nil {
@@ -146,6 +148,47 @@ func (db *DB) Put(ctx context.Context, path string, content *manifest.Content) e
 
 func (db *DB) Delete(ctx context.Context, path string) error {
 	db.tree.Delete(path)
+	return nil
+}
+
+// Rename renames paths using regexp.ReplaceAllString (replacement can have
+// regexp expansions). See the docs for regexp.ReplaceAllString
+func (db *DB) Rename(ctx context.Context, re *regexp.Regexp, replacement string) error {
+	type element struct {
+		path    string
+		content *manifest.Content
+	}
+	var queue []element
+	it, err := db.tree.SeekFirst()
+	if err != nil {
+		if err == io.EOF {
+			return nil
+		}
+		return err
+	}
+	defer it.Close()
+
+	for {
+		path, content, err := it.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		if re.MatchString(path) {
+			queue = append(queue, element{path: path, content: content})
+		}
+	}
+
+	for _, el := range queue {
+		db.tree.Delete(el.path)
+	}
+
+	for _, el := range queue {
+		db.tree.Set(re.ReplaceAllString(el.path, replacement), el.content)
+	}
+
 	return nil
 }
 

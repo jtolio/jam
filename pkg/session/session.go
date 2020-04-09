@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"time"
 
@@ -23,13 +24,29 @@ type opType int
 const (
 	opPut    opType = 1
 	opDelete opType = 2
+	opRename opType = 3
 )
 
-type stagedEntry struct {
-	op       opType
+type stagedPut struct {
 	path     string
 	metadata *manifest.Metadata
 	stream   *manifest.Stream
+}
+
+type stagedDelete struct {
+	path string
+}
+
+type stagedRename struct {
+	regexp      *regexp.Regexp
+	replacement string
+}
+
+type stagedEntry struct {
+	op     opType
+	put    *stagedPut
+	delete *stagedDelete
+	rename *stagedRename
 }
 
 type Session struct {
@@ -88,8 +105,8 @@ func (s *Session) Open(ctx context.Context, path string) (*manifest.Metadata, *s
 
 func (s *Session) Delete(ctx context.Context, path string) error {
 	s.staging = append(s.staging, &stagedEntry{
-		op:   opDelete,
-		path: path,
+		op:     opDelete,
+		delete: &stagedDelete{path: path},
 	})
 	return nil
 }
@@ -106,20 +123,20 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 	}
 
 	entry := &stagedEntry{
-		op:   opPut,
-		path: path,
-		metadata: &manifest.Metadata{
-			Type:     manifest.Metadata_FILE,
-			Creation: creationPB,
-			Modified: modifiedPB,
-			Mode:     mode,
-		},
-	}
+		op: opPut,
+		put: &stagedPut{
+			path: path,
+			metadata: &manifest.Metadata{
+				Type:     manifest.Metadata_FILE,
+				Creation: creationPB,
+				Modified: modifiedPB,
+				Mode:     mode,
+			}}}
 
 	s.staging = append(s.staging, entry)
 
 	return s.blobs.Put(ctx, data, func(stream *manifest.Stream) {
-		entry.stream = stream
+		entry.put.stream = stream
 	})
 }
 
@@ -133,16 +150,29 @@ func (s *Session) PutSymlink(ctx context.Context, path string, creation, modifie
 	}
 
 	s.staging = append(s.staging, &stagedEntry{
-		op:   opPut,
-		path: path,
-		metadata: &manifest.Metadata{
-			Type:       manifest.Metadata_SYMLINK,
-			Creation:   creationPB,
-			Modified:   modifiedPB,
-			Mode:       mode,
-			LinkTarget: target,
-		}})
+		op: opPut,
+		put: &stagedPut{
+			path: path,
+			metadata: &manifest.Metadata{
+				Type:       manifest.Metadata_SYMLINK,
+				Creation:   creationPB,
+				Modified:   modifiedPB,
+				Mode:       mode,
+				LinkTarget: target,
+			}}})
 
+	return nil
+}
+
+// Rename renames paths using regexp.ReplaceAllString (replacement can have
+// regexp expansions). See the docs for regexp.ReplaceAllString
+func (s *Session) Rename(ctx context.Context, re *regexp.Regexp, replacement string) error {
+	s.staging = append(s.staging, &stagedEntry{
+		op: opRename,
+		rename: &stagedRename{
+			regexp:      re,
+			replacement: replacement,
+		}})
 	return nil
 }
 
@@ -173,15 +203,20 @@ func (s *Session) Commit(ctx context.Context) (err error) {
 	for _, entry := range s.staging {
 		switch entry.op {
 		case opPut:
-			err = s.paths.Put(ctx, entry.path, &manifest.Content{
-				Metadata: entry.metadata,
-				Data:     entry.stream,
+			err = s.paths.Put(ctx, entry.put.path, &manifest.Content{
+				Metadata: entry.put.metadata,
+				Data:     entry.put.stream,
 			})
 			if err != nil {
 				return err
 			}
 		case opDelete:
-			err = s.paths.Delete(ctx, entry.path)
+			err = s.paths.Delete(ctx, entry.delete.path)
+			if err != nil {
+				return err
+			}
+		case opRename:
+			err = s.paths.Rename(ctx, entry.rename.regexp, entry.rename.replacement)
 			if err != nil {
 				return err
 			}

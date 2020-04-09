@@ -1,4 +1,10 @@
-fix ctrl-c unmount
-still some nondeterministic bug in large directories
+fuller stack tests
+features:
+  delete old snaps
+  integrity check
+  gc
+backends:
+  storj
+  s3
 other TODOs in comments
-replace all
+performance

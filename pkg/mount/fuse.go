@@ -13,6 +13,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/zeebo/errs"
 
 	"github.com/jtolds/jam/pkg/manifest"
 	"github.com/jtolds/jam/pkg/session"
@@ -92,9 +93,16 @@ func (n *fuseNode) Lookup(ctx context.Context, name string) (fs.Node, error) {
 	}, nil
 }
 
+var (
+	uid = uint32(os.Geteuid())
+	gid = uint32(os.Getegid())
+)
+
 func (n *fuseNode) Attr(ctx context.Context, out *fuse.Attr) error {
+	out.Uid = uid
+	out.Gid = gid
 	if n.meta == nil {
-		out.Mode = os.ModeDir | 0700
+		out.Mode = os.ModeDir | 0500
 		return nil
 	}
 	modTime, err := ptypes.Timestamp(n.meta.Modified)
@@ -118,7 +126,7 @@ func (n *fuseNode) Attr(ctx context.Context, out *fuse.Attr) error {
 	default:
 		return fmt.Errorf("unknown object type: %v", n.meta.Type)
 	}
-	out.Mode |= 0600
+	out.Mode |= os.FileMode(n.meta.Mode & 0777)
 	return nil
 }
 
@@ -175,9 +183,10 @@ type fuseFS struct {
 func (f *fuseFS) Root() (fs.Node, error) { return f.root, nil }
 
 type Session struct {
-	conn *fuse.Conn
-	srv  *fs.Server
-	fs   *fuseFS
+	conn   *fuse.Conn
+	target string
+	srv    *fs.Server
+	fs     *fuseFS
 }
 
 func Mount(ctx context.Context, snap session.Snapshot, target string) (*Session, error) {
@@ -186,9 +195,10 @@ func Mount(ctx context.Context, snap session.Snapshot, target string) (*Session,
 		return nil, err
 	}
 	return &Session{
-		conn: conn,
-		srv:  fs.New(conn, nil),
-		fs:   &fuseFS{root: &fuseNode{snap: snap}},
+		conn:   conn,
+		target: target,
+		srv:    fs.New(conn, nil),
+		fs:     &fuseFS{root: &fuseNode{snap: snap}},
 	}, nil
 }
 
@@ -202,5 +212,6 @@ func (s *Session) Serve() error {
 }
 
 func (s *Session) Close() error {
-	return s.conn.Close()
+	err := fuse.Unmount(s.target)
+	return errs.Combine(err, s.conn.Close())
 }
