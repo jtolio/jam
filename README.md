@@ -28,4 +28,5 @@ FLAGS
                                            supports:
                                            * file://<path>,
                                            * storj://<access>/<bucket>
+                                           * s3://<bucket>
 ```

@@ -24,6 +24,7 @@ import (
 
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/backends/fs"
+	"github.com/jtolds/jam/backends/s3"
 	"github.com/jtolds/jam/backends/storj"
 	"github.com/jtolds/jam/blobs"
 	"github.com/jtolds/jam/enc"
@@ -43,7 +44,10 @@ var (
 		"encryption passphrase")
 	sysFlagStore = sysFlags.String("store",
 		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "storage")}).String(),
-		"place to store data. currently\n\tsupports:\n\t* file://<path>,\n\t* storj://<access>/<bucket>")
+		("place to store data. currently\n\tsupports:\n" +
+			"\t* file://<path>,\n" +
+			"\t* storj://<access>/<bucket>\n" +
+			"\t* s3://<bucket>"))
 	sysFlagBlobSize = sysFlags.Int64("blobs.size", 60*1024*1024,
 		"target blob size")
 	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1000,
@@ -154,6 +158,12 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 		}
 		store = storj.New(p, strings.TrimPrefix(u.Path, "/"))
 		closers = append(closers, p)
+	case "s3":
+		var err error
+		store, err = s3.New(u.Host)
+		if err != nil {
+			return nil, nil, err
+		}
 	default:
 		return nil, nil, fmt.Errorf("unknown storage scheme %q", u.Scheme)
 	}
