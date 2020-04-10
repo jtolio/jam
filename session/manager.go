@@ -36,6 +36,7 @@ func pathToTimestamp(path string) (time.Time, error) {
 type Snapshot interface {
 	List(ctx context.Context, prefix, delimiter string, cb func(ctx context.Context, entry *ListEntry) error) error
 	Open(ctx context.Context, path string) (*manifest.Metadata, *streams.Stream, error)
+	HasPrefix(ctx context.Context, prefix string) (exists bool, err error)
 	Close() error
 }
 
@@ -82,15 +83,16 @@ func (s *Manager) latestTimestamp(ctx context.Context) (time.Time, error) {
 	return latest, nil
 }
 
-func (s *Manager) LatestSnapshot(ctx context.Context) (Snapshot, error) {
+func (s *Manager) LatestSnapshot(ctx context.Context) (Snapshot, time.Time, error) {
 	latest, err := s.latestTimestamp(ctx)
 	if err != nil {
-		return nil, err
+		return nil, time.Time{}, err
 	}
 	if latest.IsZero() {
-		return nil, fmt.Errorf("no snapshots exist yet")
+		return nil, time.Time{}, fmt.Errorf("no snapshots exist yet")
 	}
-	return s.OpenSnapshot(ctx, latest)
+	snap, err := s.OpenSnapshot(ctx, latest)
+	return snap, latest, err
 }
 
 func (s *Manager) openSession(ctx context.Context, timestamp time.Time) (*Session, error) {

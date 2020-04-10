@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -28,12 +29,19 @@ type fuseHandle struct {
 var _ fs.HandleReader = (*fuseHandle)(nil)
 var _ fs.HandleReleaser = (*fuseHandle)(nil)
 
+func logE(err error) error {
+	if err != nil {
+		log.Printf("error: %+v\n", err)
+	}
+	return err
+}
+
 func (h *fuseHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
 	h.mtx.Lock()
 	defer h.mtx.Unlock()
 	_, err := h.stream.Seek(req.Offset, io.SeekStart)
 	if err != nil {
-		return err
+		return logE(err)
 	}
 	dest := resp.Data
 	if len(dest) < req.Size {
@@ -41,7 +49,7 @@ func (h *fuseHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse
 	}
 	n, err := io.ReadFull(h.stream, dest)
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-		return err
+		return logE(err)
 	}
 	resp.Data = dest[:n]
 	return nil
@@ -50,7 +58,7 @@ func (h *fuseHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse
 func (h *fuseHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 	h.mtx.Lock()
 	defer h.mtx.Unlock()
-	return h.stream.Close()
+	return logE(h.stream.Close())
 }
 
 type fuseNode struct {
@@ -76,13 +84,20 @@ func (n *fuseNode) Lookup(ctx context.Context, name string) (fs.Node, error) {
 	meta, data, err := n.snap.Open(ctx, child)
 	if err != nil {
 		if !errors.Is(err, session.ErrNotFound) {
-			return nil, err
+			return nil, logE(err)
+		}
+		exists, err := n.snap.HasPrefix(ctx, fullpath(child, ""))
+		if err != nil {
+			return nil, logE(err)
+		}
+		if !exists {
+			return nil, fuse.ENOENT
 		}
 		meta, data = nil, nil
 	} else {
 		err = data.Close()
 		if err != nil {
-			return nil, err
+			return nil, logE(err)
 		}
 	}
 	return &fuseNode{
@@ -107,13 +122,13 @@ func (n *fuseNode) Attr(ctx context.Context, out *fuse.Attr) error {
 	}
 	modTime, err := ptypes.Timestamp(n.meta.Modified)
 	if err != nil {
-		return err
+		return logE(err)
 	}
 	out.Mtime = modTime
 	out.Ctime = modTime
 	crTime, err := ptypes.Timestamp(n.meta.Creation)
 	if err != nil {
-		return err
+		return logE(err)
 	}
 	out.Crtime = crTime
 	if n.data != nil {
@@ -124,7 +139,7 @@ func (n *fuseNode) Attr(ctx context.Context, out *fuse.Attr) error {
 	case manifest.Metadata_SYMLINK:
 		out.Mode = os.ModeSymlink
 	default:
-		return fmt.Errorf("unknown object type: %v", n.meta.Type)
+		return logE(fmt.Errorf("unknown object type: %v", n.meta.Type))
 	}
 	out.Mode |= os.FileMode(n.meta.Mode & 0777)
 	return nil
@@ -157,7 +172,7 @@ func (d *fuseDir) ReadDirAll(ctx context.Context) (entries []fuse.Dirent, err er
 			})
 			return nil
 		})
-	return entries, err
+	return entries, logE(err)
 }
 
 func (n *fuseNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (
@@ -169,7 +184,7 @@ func (n *fuseNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.O
 	if req.Dir {
 		return &fuseDir{n: n}, nil
 	}
-	return &fuseHandle{stream: n.data.Fork(ctx)}, nil
+	return &fuseHandle{stream: n.data.Fork(context.Background())}, nil
 }
 
 func (n *fuseNode) Readlink(ctx context.Context, req *fuse.ReadlinkRequest) (string, error) {

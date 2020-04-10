@@ -99,6 +99,18 @@ func (db *DB) Get(ctx context.Context, path string) (*manifest.Content, error) {
 	return v, nil
 }
 
+func (db *DB) HasPrefix(ctx context.Context, prefix string) (exists bool, err error) {
+	it, _ := db.tree.Seek(prefix)
+	path, _, err := it.Next()
+	if err != nil {
+		if err == io.EOF {
+			return false, nil
+		}
+		return false, err
+	}
+	return strings.HasPrefix(path, prefix), nil
+}
+
 func (db *DB) List(ctx context.Context, prefix, delimiter string,
 	cb func(ctx context.Context, path string, content *manifest.Content) error) error {
 	lastPath := ""

@@ -103,6 +103,10 @@ func (s *Session) Open(ctx context.Context, path string) (*manifest.Metadata, *s
 	return content.Metadata, stream, err
 }
 
+func (s *Session) HasPrefix(ctx context.Context, prefix string) (exists bool, err error) {
+	return s.paths.HasPrefix(ctx, prefix)
+}
+
 func (s *Session) Delete(ctx context.Context, path string) error {
 	s.staging = append(s.staging, &stagedEntry{
 		op:     opDelete,

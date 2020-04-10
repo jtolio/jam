@@ -284,20 +284,26 @@ func Rename(ctx context.Context, args []string) error {
 	return sess.Commit(ctx)
 }
 
-func getReadSnapshot(ctx context.Context, mgr *session.Manager, snapshotFlag string) (session.Snapshot, error) {
+func getReadSnapshot(ctx context.Context, mgr *session.Manager, snapshotFlag string) (session.Snapshot, time.Time, error) {
 	if snapshotFlag == "" || snapshotFlag == "latest" {
 		return mgr.LatestSnapshot(ctx)
 	}
 	nano, err := strconv.ParseInt(snapshotFlag, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("invalid snapshot value: %q", snapshotFlag)
+		return nil, time.Time{}, fmt.Errorf("invalid snapshot value: %q", snapshotFlag)
 	}
-	return mgr.OpenSnapshot(ctx, time.Unix(0, nano))
+	ts := time.Unix(0, nano)
+	snap, err := mgr.OpenSnapshot(ctx, ts)
+	return snap, ts, err
 }
 
 func Mount(ctx context.Context, args []string) error {
 	if len(args) != 1 {
 		return flag.ErrHelp
+	}
+	mountpoint, err := filepath.Abs(args[0])
+	if err != nil {
+		return err
 	}
 
 	mgr, mgrClose, err := getManager(ctx)
@@ -306,13 +312,13 @@ func Mount(ctx context.Context, args []string) error {
 	}
 	defer mgrClose()
 
-	snap, err := getReadSnapshot(ctx, mgr, *mountFlagSnapshot)
+	snap, ts, err := getReadSnapshot(ctx, mgr, *mountFlagSnapshot)
 	if err != nil {
 		return err
 	}
 	defer snap.Close()
 
-	sess, err := mount.Mount(ctx, snap, args[0])
+	sess, err := mount.Mount(ctx, snap, mountpoint)
 	if err != nil {
 		return err
 	}
@@ -325,6 +331,7 @@ func Mount(ctx context.Context, args []string) error {
 		sess.Close()
 	}()
 
+	fmt.Printf("mounted snapshot %d at %q\n", ts.UnixNano(), mountpoint)
 	return sess.Serve()
 }
 
@@ -339,7 +346,7 @@ func List(ctx context.Context, args []string) error {
 	}
 	defer mgrClose()
 
-	snap, err := getReadSnapshot(ctx, mgr, *listFlagSnapshot)
+	snap, _, err := getReadSnapshot(ctx, mgr, *listFlagSnapshot)
 	if err != nil {
 		return err
 	}

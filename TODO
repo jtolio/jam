@@ -1,7 +1,7 @@
 fuller stack tests
 features:
   delete old snaps
-  integrity check
+  hashes for syncing only what's changed
   gc
 backends:
   s3
