@@ -28,14 +28,20 @@ func NewEncWrapper(encryption Codec, keyGen KeyGenerator, backend backends.Backe
 }
 
 // Get implements the Backend interface
-func (e *EncWrapper) Get(ctx context.Context, path string, offset int64) (io.ReadCloser, error) {
+func (e *EncWrapper) Get(ctx context.Context, path string, offset, length int64) (io.ReadCloser, error) {
 	// See implementation note in List
 
 	// calculate how much back we have to get to get the block that contains the requested offset
 	decodedBlockSize := int64(e.enc.DecodedBlockSize())
 	encodedBlockSize := int64(e.enc.EncodedBlockSize())
 	firstBlock := offset / decodedBlockSize
-	fh, err := e.backend.Get(ctx, path, firstBlock*encodedBlockSize)
+	encodedLength := int64(-1)
+	if length > 0 {
+		lastByte := offset + length - 1
+		blockOfLastByte := lastByte / decodedBlockSize
+		encodedLength = (blockOfLastByte + 1) * encodedBlockSize
+	}
+	fh, err := e.backend.Get(ctx, path, firstBlock*encodedBlockSize, encodedLength)
 	if err != nil {
 		return nil, err
 	}

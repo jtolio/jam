@@ -2,7 +2,9 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -71,6 +73,7 @@ func (s *Manager) ListSnapshots(ctx context.Context,
 
 func (s *Manager) latestTimestamp(ctx context.Context) (time.Time, error) {
 	var latest time.Time
+	// TODO: there is probably a better way here
 	err := s.ListSnapshots(ctx, func(ctx context.Context, timestamp time.Time) error {
 		if latest.IsZero() || timestamp.After(latest) {
 			latest = timestamp
@@ -96,7 +99,11 @@ func (s *Manager) LatestSnapshot(ctx context.Context) (Snapshot, time.Time, erro
 }
 
 func (s *Manager) openSession(ctx context.Context, timestamp time.Time) (*Session, error) {
-	rc, err := s.backend.Get(ctx, timestampToPath(timestamp), 0)
+	err := s.confirmSnapExists(ctx, timestamp)
+	if err != nil {
+		return nil, err
+	}
+	rc, err := s.backend.Get(ctx, timestampToPath(timestamp), 0, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -126,4 +133,44 @@ func (s *Manager) NewSession(ctx context.Context) (*Session, error) {
 	} else {
 		return s.openSession(ctx, latest)
 	}
+}
+
+func (s *Manager) DeleteSnapshot(ctx context.Context, timestamp time.Time) error {
+	latest, err := s.latestTimestamp(ctx)
+	if err != nil {
+		return err
+	}
+	if latest.IsZero() {
+		return fmt.Errorf("no snapshots exist yet")
+	}
+	if !latest.After(timestamp) {
+		return fmt.Errorf("can't remove latest snapshot")
+	}
+	err = s.confirmSnapExists(ctx, timestamp)
+	if err != nil {
+		return err
+	}
+	return s.backend.Delete(ctx, timestampToPath(timestamp))
+}
+
+var escapeList = fmt.Errorf("escaping list")
+var noSnap = fmt.Errorf("snap does not exist")
+
+func (s *Manager) confirmSnapExists(ctx context.Context, timestamp time.Time) error {
+	found := false
+	timestampPath := timestampToPath(timestamp)
+	err := s.backend.List(ctx, filepath.Dir(timestampPath)+"/", func(ctx context.Context, path string) error {
+		if path == timestampPath {
+			found = true
+			return escapeList
+		}
+		return nil
+	})
+	if err != nil && !errors.Is(err, escapeList) {
+		return err
+	}
+	if !found {
+		return noSnap
+	}
+	return nil
 }

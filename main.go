@@ -66,6 +66,12 @@ var (
 		ShortUsage: fmt.Sprintf("%s [opts] snaps", os.Args[0]),
 		Exec:       Snaps,
 	}
+	cmdUnsnap = &ffcli.Command{
+		Name:       "unsnap",
+		ShortHelp:  "unsnap removes an old snap",
+		ShortUsage: fmt.Sprintf("%s [opts] unsnap <snapid>", os.Args[0]),
+		Exec:       Unsnap,
+	}
 	cmdMount = &ffcli.Command{
 		Name:       "mount",
 		ShortHelp:  "mounts snap as read-only filesystem",
@@ -97,7 +103,7 @@ var (
 	cmdRoot = &ffcli.Command{
 		ShortHelp:   "jam preserves your data",
 		ShortUsage:  fmt.Sprintf("%s [opts] <subcommand> [opts]", os.Args[0]),
-		Subcommands: []*ffcli.Command{cmdList, cmdMount, cmdRename, cmdSnaps, cmdStore},
+		Subcommands: []*ffcli.Command{cmdList, cmdMount, cmdRename, cmdSnaps, cmdStore, cmdUnsnap},
 		FlagSet:     sysFlags,
 		Options: []ff.Option{
 			ff.WithAllowMissingConfigFile(true),
@@ -367,4 +373,22 @@ func List(ctx context.Context, args []string) error {
 		}
 		return nil
 	})
+}
+
+func Unsnap(ctx context.Context, args []string) error {
+	if len(args) != 1 {
+		return flag.ErrHelp
+	}
+
+	mgr, mgrClose, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+	defer mgrClose()
+
+	nano, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid snapshot value: %q", args[0])
+	}
+	return mgr.DeleteSnapshot(ctx, time.Unix(0, nano))
 }

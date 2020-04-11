@@ -3,6 +3,7 @@ package fs
 import (
 	"context"
 	"io"
+	"math/rand"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -29,7 +30,7 @@ func New(ctx context.Context, u *url.URL) (backends.Backend, error) {
 }
 
 // Get implements the Backend interface
-func (fs *FS) Get(ctx context.Context, path string, offset int64) (io.ReadCloser, error) {
+func (fs *FS) Get(ctx context.Context, path string, offset, length int64) (rv io.ReadCloser, err error) {
 	localpath := filepath.Join(fs.root, path)
 	fh, err := os.Open(localpath)
 	if err != nil {
@@ -42,7 +43,21 @@ func (fs *FS) Get(ctx context.Context, path string, offset int64) (io.ReadCloser
 			return nil, errs.Wrap(err)
 		}
 	}
-	return fh, nil
+
+	rv = fh
+	if rand.Intn(2) == 0 {
+		// makes sure we make the rest of the code handle both cases, since other backends might do
+		// either thing and this backend is used often for testing
+		rv = struct {
+			io.Reader
+			io.Closer
+		}{
+			Reader: io.LimitReader(fh, length),
+			Closer: fh,
+		}
+	}
+
+	return rv, nil
 }
 
 // Put implements the Backend interface

@@ -41,8 +41,11 @@ func New(ctx context.Context, url *url.URL) (backends.Backend, error) {
 
 var _ backends.Backend = (*Backend)(nil)
 
-func (b *Backend) Get(ctx context.Context, path string, offset int64) (io.ReadCloser, error) {
+func (b *Backend) Get(ctx context.Context, path string, offset, length int64) (io.ReadCloser, error) {
 	rangeOffset := fmt.Sprintf("bytes=%d-", offset)
+	if length > 0 {
+		rangeOffset = fmt.Sprintf("bytes=%d-%d", offset, offset+length-1)
+	}
 	path = b.prefix + path
 	out, err := b.svc.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: &b.bucket,

@@ -1,11 +1,10 @@
 fuller stack tests
 features:
-  delete old snaps
   hashes for syncing only what's changed
+  hashes for SIS
   gc
   make rename safer
+  fix symlinks
 backends:
   support adding a second backend later (syncing)
 other TODOs in comments
-performance
-  offset and length for backends

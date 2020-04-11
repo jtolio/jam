@@ -22,8 +22,8 @@ func Combine(primary Backend, others ...Backend) Backend {
 
 var _ Backend = (*combined)(nil)
 
-func (c *combined) Get(ctx context.Context, path string, offset int64) (io.ReadCloser, error) {
-	return c.primary.Get(ctx, path, offset)
+func (c *combined) Get(ctx context.Context, path string, offset, length int64) (io.ReadCloser, error) {
+	return c.primary.Get(ctx, path, offset, length)
 }
 
 func (c *combined) List(ctx context.Context, prefix string, cb func(ctx context.Context, path string) error) error {

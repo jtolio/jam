@@ -52,7 +52,7 @@ func (t *suite) TestGetPutListDelete() {
 	rv = listSlice(t.b, "hello/")
 	require.True(t.T, len(rv) == 1)
 	require.True(t.T, rv[0] == "hello/there")
-	rc, err := t.b.Get(ctx, "hello/there", 0)
+	rc, err := t.b.Get(ctx, "hello/there", 0, -1)
 	require.NoError(t.T, err)
 	data, err := ioutil.ReadAll(io.LimitReader(rc, int64(len([]byte(data1)))))
 	require.NoError(t.T, err)
@@ -64,7 +64,7 @@ func (t *suite) TestGetPutListDelete() {
 	rv = listSlice(t.b, "")
 	require.True(t.T, len(rv) == 1)
 	require.True(t.T, rv[0] == "hi/there")
-	rc, err = t.b.Get(ctx, "hi/there", 0)
+	rc, err = t.b.Get(ctx, "hi/there", 0, -1)
 	require.NoError(t.T, err)
 	data, err = ioutil.ReadAll(io.LimitReader(rc, int64(len([]byte(data2)))))
 	require.NoError(t.T, err)
@@ -78,13 +78,20 @@ func (t *suite) TestOffset() {
 	require.NoError(t.T, err)
 	require.NoError(t.T, t.b.Put(ctx, "testfile", bytes.NewReader(data[:])))
 	for i := 0; i < len(data[:]); i++ {
-		rc, err := t.b.Get(ctx, "testfile", int64(i))
+		rc, err := t.b.Get(ctx, "testfile", int64(i), -1)
 		require.NoError(t.T, err)
 		testdata, err := ioutil.ReadAll(io.LimitReader(rc, int64(len(data)-i)))
 		require.NoError(t.T, err)
 		require.NoError(t.T, rc.Close())
 		require.True(t.T, bytes.Equal(data[i:], testdata))
 	}
+}
+
+func (t *suite) TestLength() {
+	t.Skip()
+	// TODO: this needs to only confirm that at least the length requested is
+	// indeed returned (it's okay if more than the length requested is
+	// returned)
 }
 
 func (t *suite) TestHierarchy() {
