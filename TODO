@@ -3,7 +3,9 @@ features:
   delete old snaps
   hashes for syncing only what's changed
   gc
+  make rename safer
 backends:
-  support syncing between backends
+  support adding a second backend later (syncing)
 other TODOs in comments
 performance
+  offset and length for backends

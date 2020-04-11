@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -45,7 +46,8 @@ var (
 		("place to store data. currently\n\tsupports:\n" +
 			"\t* file://<path>,\n" +
 			"\t* storj://<access>/<bucket>/<prefix>\n" +
-			"\t* s3://<bucket>/<prefix>"))
+			"\t* s3://<bucket>/<prefix>\n" +
+			"\tand can be comma-separated to store\n\tto multiple"))
 	sysFlagBlobSize = sysFlags.Int64("blobs.size", 60*1024*1024,
 		"target blob size")
 	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1000,
@@ -135,16 +137,30 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 		return nil, nil, fmt.Errorf("invalid configuration, no root key specified")
 	}
 
-	u, err := url.Parse(*sysFlagStore)
-	if err != nil {
-		return nil, nil, err
+	var stores []backends.Backend
+	cleanup := func() {
+		for _, store := range stores {
+			store.Close()
+		}
 	}
-	store, err := backends.Create(ctx, u)
-	if err != nil {
-		return nil, nil, err
+	for _, storeurl := range strings.Split(*sysFlagStore, ",") {
+		u, err := url.Parse(storeurl)
+		if err != nil {
+			cleanup()
+			return nil, nil, err
+		}
+		store, err := backends.Create(ctx, u)
+		if err != nil {
+			cleanup()
+			return nil, nil, err
+		}
+		stores = append(stores, store)
 	}
-	defer store.Close()
 
+	store := stores[0]
+	if len(stores) > 1 {
+		store = backends.Combine(stores[0], stores[1:]...)
+	}
 	backend := enc.NewEncWrapper(
 		enc.NewSecretboxCodec(*sysFlagBlockSize),
 		enc.NewHMACKeyGenerator([]byte(*sysFlagPassphrase)),

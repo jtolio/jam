@@ -17,16 +17,18 @@ SUBCOMMANDS
           the latest snapshot.
 
 FLAGS
-  -blobs.max-unflushed 1000                max number of objects to stage
-                                           before flushing (requires file
-                                           descriptor limit)
-  -blobs.size 62914560                     target blob size
-  -config /home/user/.jam/jam.conf         path to config file
-  -enc.block-size 16384                    encryption block size
-  -enc.passphrase ...                      encryption passphrase
-  -store file:///home/user/.jam/storage    place to store data. currently
-                                           supports:
-                                           * file://<path>,
-                                           * storj://<access>/<bucket>/<prefix>
-                                           * s3://<bucket>/<prefix>
+  -blobs.max-unflushed 1000              max number of objects to stage
+                                         before flushing (requires file
+                                         descriptor limit)
+  -blobs.size 62914560                   target blob size
+  -config /home/user/.jam/jam.conf       path to config file
+  -enc.block-size 16384                  encryption block size
+  -enc.passphrase ...                    encryption passphrase
+  -store file:///home/user/.jam/storage  place to store data. currently
+                                         supports:
+                                         * file://<path>,
+                                         * storj://<access>/<bucket>/<prefix>
+                                         * s3://<bucket>/<prefix>
+                                         and can be comma-separated to store
+                                         to multiple
 ```
