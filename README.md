@@ -4,7 +4,7 @@ jam preserves your data
 
 ```
 USAGE
-  ./jam [opts] <subcommand> [opts]
+  jam [opts] <subcommand> [opts]
 
 SUBCOMMANDS
   ls      ls lists files in the given snapshot
@@ -15,20 +15,26 @@ SUBCOMMANDS
   snaps   lists snapshots
   store   store adds the given source directory to a new snapshot, forked from
           the latest snapshot.
+  unsnap  unsnap removes an old snap
 
 FLAGS
-  -blobs.max-unflushed 1000              max number of objects to stage
-                                         before flushing (requires file
-                                         descriptor limit)
-  -blobs.size 62914560                   target blob size
-  -config /home/user/.jam/jam.conf       path to config file
-  -enc.block-size 16384                  encryption block size
-  -enc.passphrase ...                    encryption passphrase
-  -store file:///home/user/.jam/storage  place to store data. currently
-                                         supports:
-                                         * file://<path>,
-                                         * storj://<access>/<bucket>/<prefix>
-                                         * s3://<bucket>/<prefix>
-                                         and can be comma-separated to store
-                                         to multiple
+  -blobs.max-unflushed 1000                  max number of objects to stage
+                                             before flushing (requires file
+                                             descriptor limit)
+  -blobs.size 62914560                       target blob size
+  -cache.read-max 1048576                    files over this size are not
+                                             considered by the cache
+  -cache.size 10                             how many blobs to cache
+  -cache.store file:///home/user/.jam/cache  where to cache blobs that are
+                                             frequently read
+  -config /home/user/.jam/jam.conf           path to config file
+  -enc.block-size 16384                      encryption block size
+  -enc.passphrase ...                        encryption passphrase
+  -store file:///home/user/.jam/storage      place to store data. currently
+                                             supports:
+                                             * file://<path>,
+                                             * storj://<access>/<bucket>/<prefix>
+                                             * s3://<bucket>/<prefix>
+                                             and can be comma-separated to store
+                                             to multiple
 ```

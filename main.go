@@ -22,6 +22,7 @@ import (
 
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/blobs"
+	"github.com/jtolds/jam/cache"
 	"github.com/jtolds/jam/enc"
 	"github.com/jtolds/jam/mount"
 	"github.com/jtolds/jam/session"
@@ -52,6 +53,12 @@ var (
 		"target blob size")
 	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1000,
 		"max number of objects to stage\n\tbefore flushing (requires file\n\tdescriptor limit)")
+	sysFlagCacheSize = sysFlags.Int("cache.size", 10, "how many blobs to cache")
+	sysFlagCache     = sysFlags.String("cache.store",
+		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "cache")}).String(),
+		"where to cache blobs that are\n\tfrequently read")
+	sysFlagCacheReadMax = sysFlags.Int64("cache.read-max", 1024*1024,
+		"files over this size are not\n\tconsidered by the cache")
 
 	listFlags         = flag.NewFlagSet("", flag.ExitOnError)
 	listFlagSnapshot  = listFlags.String("snap", "latest", "which snapshot to use")
@@ -144,20 +151,20 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 	}
 
 	var stores []backends.Backend
-	cleanup := func() {
-		for _, store := range stores {
-			store.Close()
+	defer func() {
+		if err != nil {
+			for _, store := range stores {
+				store.Close()
+			}
 		}
-	}
+	}()
 	for _, storeurl := range strings.Split(*sysFlagStore, ",") {
 		u, err := url.Parse(storeurl)
 		if err != nil {
-			cleanup()
 			return nil, nil, err
 		}
 		store, err := backends.Create(ctx, u)
 		if err != nil {
-			cleanup()
 			return nil, nil, err
 		}
 		stores = append(stores, store)
@@ -167,6 +174,21 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 	if len(stores) > 1 {
 		store = backends.Combine(stores[0], stores[1:]...)
 	}
+
+	cacheURL, err := url.Parse(*sysFlagCache)
+	if err != nil {
+		return nil, nil, err
+	}
+	cacheStore, err := backends.Create(ctx, cacheURL)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	store, err = cache.New(ctx, store, cacheStore, *sysFlagCacheReadMax, *sysFlagCacheSize)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	backend := enc.NewEncWrapper(
 		enc.NewSecretboxCodec(*sysFlagBlockSize),
 		enc.NewHMACKeyGenerator([]byte(*sysFlagPassphrase)),

@@ -49,7 +49,7 @@ func (e *EncWrapper) Get(ctx context.Context, path string, offset, length int64)
 	// Implementation note:
 	// Keys are always the same for the same path. There is normally a huge risk of nonce reuse
 	// in this scenario except it is guaranteed that for backends, a given path will always
-	// have the exact same data, and deletion is forever.
+	// have the exact same data.
 	key := e.keyGen.KeyForPath(path)
 	r := DecodeReader(fh, e.enc, &key, firstBlock)
 
