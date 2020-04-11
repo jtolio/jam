@@ -127,3 +127,7 @@ func (pd *padding) Read(p []byte) (n int, err error) {
 	}
 	return n, nil
 }
+
+func (e *EncWrapper) Close() error {
+	return e.backend.Close()
+}

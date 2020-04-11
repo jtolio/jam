@@ -3,6 +3,7 @@ package fs
 import (
 	"context"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -11,6 +12,10 @@ import (
 	"github.com/jtolds/jam/backends"
 )
 
+func init() {
+	backends.Register("file", New)
+}
+
 // FS implements the Backend interface using the local disk
 type FS struct {
 	root string
@@ -18,9 +23,9 @@ type FS struct {
 
 var _ backends.Backend = (*FS)(nil)
 
-// NewFS returns an FS mounted at the provided root path.
-func NewFS(root string) *FS {
-	return &FS{root: root}
+// New returns an FS mounted at the provided root path.
+func New(ctx context.Context, u *url.URL) (backends.Backend, error) {
+	return &FS{root: u.Path}, nil
 }
 
 // Get implements the Backend interface
@@ -109,3 +114,5 @@ func (fs *FS) List(ctx context.Context, prefix string,
 			return cb(ctx, internal)
 		})
 }
+
+func (fs *FS) Close() error { return nil }

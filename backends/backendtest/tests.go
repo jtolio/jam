@@ -18,7 +18,7 @@ import (
 
 var ctx = context.Background()
 
-type BackendGen func() (b backends.Backend, closer func() error, err error)
+type BackendGen func() (b backends.Backend, cleanup func() error, err error)
 
 func listSlice(b backends.Backend, prefix string) (
 	rv []string) {
@@ -73,11 +73,11 @@ func (t *suite) TestGetPutListDelete() {
 }
 
 func (t *suite) TestOffset() {
-	var data [10 * 1024]byte
+	var data [1024]byte
 	_, err := rand.Read(data[:])
 	require.NoError(t.T, err)
 	require.NoError(t.T, t.b.Put(ctx, "testfile", bytes.NewReader(data[:])))
-	for i := 0; i <= len(data[:]); i++ {
+	for i := 0; i < len(data[:]); i++ {
 		rc, err := t.b.Get(ctx, "testfile", int64(i))
 		require.NoError(t.T, err)
 		testdata, err := ioutil.ReadAll(io.LimitReader(rc, int64(len(data)-i)))
@@ -133,7 +133,7 @@ func RunSuite(t *testing.T, gen BackendGen) {
 		if !strings.HasPrefix(m.Name, "Test") {
 			continue
 		}
-		b, closer, err := gen()
+		b, cleanup, err := gen()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -143,9 +143,15 @@ func RunSuite(t *testing.T, gen BackendGen) {
 				b: b,
 			})})
 		})
-		err = closer()
+		err = b.Close()
 		if err != nil {
 			t.Fatal(err)
+		}
+		if cleanup != nil {
+			err = cleanup()
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 }

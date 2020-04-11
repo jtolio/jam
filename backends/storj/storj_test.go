@@ -5,10 +5,9 @@ package storj
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"testing"
 	"time"
-
-	"storj.io/uplink"
 
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/backends/backendtest"
@@ -21,22 +20,32 @@ var (
 
 func TestStorjBackend(t *testing.T) {
 	backendtest.RunSuite(t, func() (backends.Backend, func() error, error) {
-		access, err := uplink.ParseAccess(ctx, accessGrant)
+		bucket := fmt.Sprintf("jam-test-bucket-%d", time.Now().UnixNano())
+		b, err := New(ctx, &url.URL{Host: accessGrant, Path: "/" + bucket})
 		if err != nil {
 			return nil, nil, err
 		}
-		p, err := uplink.OpenProject(ctx, access)
+		_, err = b.(*Backend).p.CreateBucket(ctx, bucket)
+		if err != nil {
+			b.Close()
+			return nil, nil, err
+		}
+		return b, nil, nil
+	})
+}
+
+func TestStorjBackendWithPrefix(t *testing.T) {
+	backendtest.RunSuite(t, func() (backends.Backend, func() error, error) {
+		bucket := fmt.Sprintf("jam-test-bucket-%d", time.Now().UnixNano())
+		b, err := New(ctx, &url.URL{Host: accessGrant, Path: "/" + bucket + "/aprefix/"})
 		if err != nil {
 			return nil, nil, err
 		}
-		bucket := fmt.Sprintf("bucket-%d", time.Now().UnixNano())
-		_, err = p.CreateBucket(ctx, bucket)
+		_, err = b.(*Backend).p.CreateBucket(ctx, bucket)
 		if err != nil {
-			p.Close()
+			b.Close()
 			return nil, nil, err
 		}
-		return New(p, bucket), func() error {
-			return p.Close()
-		}, nil
+		return b, nil, nil
 	})
 }

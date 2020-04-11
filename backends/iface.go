@@ -30,8 +30,8 @@ import (
 type Backend interface {
 	// Get takes a path and an offset and returns an io.ReadCloser consisting of
 	// data from the offset to the end of the object. The offset will be >= 0 and
-	// less than or equal to the object's length. Behavior outside of those bounds
-	// is undefined.
+	// less than the object's length. Behavior outside of those bounds is
+	// undefined.
 	Get(ctx context.Context, path string, offset int64) (io.ReadCloser, error)
 	// Put creates a new object at path consisting of the provided data.
 	// Put will not be called if the path exists, so behavior for existent paths
@@ -46,4 +46,6 @@ type Backend interface {
 	// required for List to return paths in order. It is expected that all paths
 	// returned are full paths.
 	List(ctx context.Context, prefix string, cb func(ctx context.Context, path string) error) error
+	// Close closes the Backend
+	Close() error
 }

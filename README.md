@@ -27,6 +27,6 @@ FLAGS
   -store file:///home/user/.jam/storage    place to store data. currently
                                            supports:
                                            * file://<path>,
-                                           * storj://<access>/<bucket>
-                                           * s3://<bucket>
+                                           * storj://<access>/<bucket>/<prefix>
+                                           * s3://<bucket>/<prefix>
 ```

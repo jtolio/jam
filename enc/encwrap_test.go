@@ -1,13 +1,19 @@
 package enc
 
 import (
+	"context"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"testing"
 
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/backends/backendtest"
 	"github.com/jtolds/jam/backends/fs"
+)
+
+var (
+	ctx = context.Background()
 )
 
 func TestFSBackend(t *testing.T) {
@@ -17,10 +23,15 @@ func TestFSBackend(t *testing.T) {
 			return nil, nil, err
 		}
 
+		b, err := fs.New(ctx, &url.URL{Path: td})
+		if err != nil {
+			return nil, nil, err
+		}
+
 		return NewEncWrapper(
 				NewSecretboxCodec(16*1024),
 				NewHMACKeyGenerator([]byte("hello")),
-				fs.NewFS(td)),
+				b),
 			func() error {
 				return os.RemoveAll(td)
 			},

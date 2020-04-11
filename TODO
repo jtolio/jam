@@ -4,7 +4,6 @@ features:
   hashes for syncing only what's changed
   gc
 backends:
-  allow other backends to register themselves
-  support prefixes in backends
+  support syncing between backends
 other TODOs in comments
 performance

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -14,18 +16,25 @@ import (
 	"github.com/jtolds/jam/backends"
 )
 
+func init() {
+	backends.Register("s3", New)
+}
+
 type Backend struct {
 	bucket string
+	prefix string
 	svc    *s3.S3
 }
 
-func New(bucket string) (*Backend, error) {
-	sess, err := session.NewSession()
+func New(ctx context.Context, url *url.URL) (backends.Backend, error) {
+	sess, err := session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable})
 	if err != nil {
 		return nil, err
 	}
 	return &Backend{
-		bucket: bucket,
+		bucket: url.Host,
+		prefix: strings.TrimPrefix(url.Path, "/"),
 		svc:    s3.New(sess),
 	}, nil
 }
@@ -33,7 +42,8 @@ func New(bucket string) (*Backend, error) {
 var _ backends.Backend = (*Backend)(nil)
 
 func (b *Backend) Get(ctx context.Context, path string, offset int64) (io.ReadCloser, error) {
-	rangeOffset := fmt.Sprintf("%d-", offset)
+	rangeOffset := fmt.Sprintf("bytes=%d-", offset)
+	path = b.prefix + path
 	out, err := b.svc.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: &b.bucket,
 		Key:    &path,
@@ -51,6 +61,7 @@ func (b *Backend) Put(ctx context.Context, path string, data io.Reader) error {
 	if err != nil {
 		return err
 	}
+	path = b.prefix + path
 	_, err = b.svc.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Body:   bytes.NewReader(seekableData),
 		Bucket: &b.bucket,
@@ -60,6 +71,7 @@ func (b *Backend) Put(ctx context.Context, path string, data io.Reader) error {
 }
 
 func (b *Backend) Delete(ctx context.Context, path string) error {
+	path = b.prefix + path
 	_, err := b.svc.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
 		Bucket: &b.bucket,
 		Key:    &path,
@@ -69,6 +81,7 @@ func (b *Backend) Delete(ctx context.Context, path string) error {
 
 func (b *Backend) List(ctx context.Context, prefix string, cb func(ctx context.Context, path string) error) error {
 	var internalErr error
+	prefix = b.prefix + prefix
 	err := b.svc.ListObjectsPagesWithContext(ctx, &s3.ListObjectsInput{
 		Bucket: &b.bucket,
 		Prefix: &prefix,
@@ -77,9 +90,11 @@ func (b *Backend) List(ctx context.Context, prefix string, cb func(ctx context.C
 			if internalErr != nil {
 				return false
 			}
-			internalErr = cb(ctx, *obj.Key)
+			internalErr = cb(ctx, strings.TrimPrefix(*obj.Key, b.prefix))
 		}
 		return internalErr == nil
 	})
 	return errs.Combine(err, internalErr)
 }
+
+func (b *Backend) Close() error { return nil }

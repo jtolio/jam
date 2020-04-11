@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"os/signal"
@@ -13,24 +12,23 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
 	ff "github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/zeebo/errs"
-	"storj.io/uplink"
 
 	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/backends/fs"
-	"github.com/jtolds/jam/backends/s3"
-	"github.com/jtolds/jam/backends/storj"
 	"github.com/jtolds/jam/blobs"
 	"github.com/jtolds/jam/enc"
 	"github.com/jtolds/jam/mount"
 	"github.com/jtolds/jam/session"
 	"github.com/jtolds/jam/utils"
+
+	_ "github.com/jtolds/jam/backends/fs"
+	_ "github.com/jtolds/jam/backends/s3"
+	_ "github.com/jtolds/jam/backends/storj"
 )
 
 var (
@@ -46,8 +44,8 @@ var (
 		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "storage")}).String(),
 		("place to store data. currently\n\tsupports:\n" +
 			"\t* file://<path>,\n" +
-			"\t* storj://<access>/<bucket>\n" +
-			"\t* s3://<bucket>"))
+			"\t* storj://<access>/<bucket>/<prefix>\n" +
+			"\t* s3://<bucket>/<prefix>"))
 	sysFlagBlobSize = sysFlags.Int64("blobs.size", 60*1024*1024,
 		"target blob size")
 	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1000,
@@ -137,36 +135,15 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 		return nil, nil, fmt.Errorf("invalid configuration, no root key specified")
 	}
 
-	var store backends.Backend
-	var closers []io.Closer
-
 	u, err := url.Parse(*sysFlagStore)
 	if err != nil {
 		return nil, nil, err
 	}
-	switch u.Scheme {
-	case "file":
-		store = fs.NewFS(u.Path)
-	case "storj":
-		access, err := uplink.ParseAccess(u.Host)
-		if err != nil {
-			return nil, nil, err
-		}
-		p, err := uplink.OpenProject(ctx, access)
-		if err != nil {
-			return nil, nil, err
-		}
-		store = storj.New(p, strings.TrimPrefix(u.Path, "/"))
-		closers = append(closers, p)
-	case "s3":
-		var err error
-		store, err = s3.New(u.Host)
-		if err != nil {
-			return nil, nil, err
-		}
-	default:
-		return nil, nil, fmt.Errorf("unknown storage scheme %q", u.Scheme)
+	store, err := backends.Create(ctx, u)
+	if err != nil {
+		return nil, nil, err
 	}
+	defer store.Close()
 
 	backend := enc.NewEncWrapper(
 		enc.NewSecretboxCodec(*sysFlagBlockSize),
@@ -174,13 +151,8 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 		store,
 	)
 	blobs := blobs.NewStore(backend, *sysFlagBlobSize, *sysFlagMaxUnflushed)
-	closers = append(closers, blobs)
 	return session.NewManager(utils.DefaultLogger, backend, blobs), func() error {
-		var grp errs.Group
-		for _, c := range closers {
-			grp.Add(c.Close())
-		}
-		return grp.Err()
+		return errs.Combine(blobs.Close(), store.Close())
 	}, nil
 }
 
