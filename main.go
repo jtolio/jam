@@ -360,7 +360,11 @@ func List(ctx context.Context, args []string) error {
 	}
 
 	return snap.List(ctx, prefix, delimiter, func(ctx context.Context, entry *session.ListEntry) error {
-		fmt.Println(entry.Path)
+		if entry.Prefix {
+			fmt.Println(entry.Path + "/")
+		} else {
+			fmt.Println(entry.Path)
+		}
 		return nil
 	})
 }
