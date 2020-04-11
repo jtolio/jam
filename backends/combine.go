@@ -84,8 +84,8 @@ func parallel(fn ...func() error) error {
 		}(f)
 	}
 	var eg errs.Group
-	for err := range errch {
-		eg.Add(err)
+	for range fn {
+		eg.Add(<-errch)
 	}
 	return eg.Err()
 }
