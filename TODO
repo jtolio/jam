@@ -1,8 +1,7 @@
 fuller stack tests
 cache:
   more testing
-  make cache wait for a few requests first
-  switch to LRU strategy?
+  preserve misra-gries and LRU state somewhere
 SIS:
   batch small files together
 features:

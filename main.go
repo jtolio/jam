@@ -46,19 +46,19 @@ var (
 		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "storage")}).String(),
 		("place to store data. currently\n\tsupports:\n" +
 			"\t* file://<path>,\n" +
-			"\t* storj://<access>/<bucket>/<prefix>\n" +
+			"\t* storj://<access>/<bucket>/<pre>\n" +
 			"\t* s3://<bucket>/<prefix>\n" +
-			"\tand can be comma-separated to store\n\tto multiple"))
+			"\tand can be comma-separated to\n\twrite to many at once"))
 	sysFlagBlobSize = sysFlags.Int64("blobs.size", 60*1024*1024,
 		"target blob size")
 	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1000,
-		"max number of objects to stage\n\tbefore flushing (requires file\n\tdescriptor limit)")
+		"max number of objects to stage\n\tbefore flushing (must fit file\n\tdescriptor limit)")
 	sysFlagCacheSize = sysFlags.Int("cache.size", 10, "how many blobs to cache")
 	sysFlagCache     = sysFlags.String("cache.store",
 		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "cache")}).String(),
 		"where to cache blobs that are\n\tfrequently read")
-	sysFlagCacheReadMax = sysFlags.Int64("cache.read-max", 1024*1024,
-		"files over this size are not\n\tconsidered by the cache")
+	sysFlagCacheMinHits = sysFlags.Int("cache.min-hits", 5,
+		"minimum number of hits to a blob\n\tbefore considering it for caching")
 
 	listFlags         = flag.NewFlagSet("", flag.ExitOnError)
 	listFlagSnapshot  = listFlags.String("snap", "latest", "which snapshot to use")
@@ -185,7 +185,7 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 			return nil, nil, err
 		}
 
-		store, err = cache.New(ctx, store, cacheStore, *sysFlagCacheReadMax, *sysFlagCacheSize)
+		store, err = cache.New(ctx, store, cacheStore, *sysFlagCacheSize, *sysFlagCacheMinHits)
 		if err != nil {
 			return nil, nil, err
 		}

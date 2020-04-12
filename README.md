@@ -19,11 +19,11 @@ SUBCOMMANDS
 
 FLAGS
   -blobs.max-unflushed 1000                  max number of objects to stage
-                                             before flushing (requires file
+                                             before flushing (must fit file
                                              descriptor limit)
   -blobs.size 62914560                       target blob size
-  -cache.read-max 1048576                    files over this size are not
-                                             considered by the cache
+  -cache.min-hits 5                          minimum number of hits to a blob
+                                             before considering it for caching
   -cache.size 10                             how many blobs to cache
   -cache.store file:///home/user/.jam/cache  where to cache blobs that are
                                              frequently read
@@ -33,8 +33,7 @@ FLAGS
   -store file:///home/user/.jam/storage      place to store data. currently
                                              supports:
                                              * file://<path>,
-                                             * storj://<access>/<bucket>/<prefix>
+                                             * storj://<access>/<bucket>/<pre>
                                              * s3://<bucket>/<prefix>
-                                             and can be comma-separated to store
-                                             to multiple
-```
+                                             and can be comma-separated to
+                                             write to many at once
