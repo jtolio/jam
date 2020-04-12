@@ -22,9 +22,10 @@ import (
 type opType int
 
 const (
-	opPut    opType = 1
-	opDelete opType = 2
-	opRename opType = 3
+	opPut       opType = 1
+	opDelete    opType = 2
+	opDeleteAll opType = 3
+	opRename    opType = 4
 )
 
 type stagedPut struct {
@@ -37,16 +38,21 @@ type stagedDelete struct {
 	path string
 }
 
+type stagedDeleteAll struct {
+	regexp *regexp.Regexp
+}
+
 type stagedRename struct {
 	regexp      *regexp.Regexp
 	replacement string
 }
 
 type stagedEntry struct {
-	op     opType
-	put    *stagedPut
-	delete *stagedDelete
-	rename *stagedRename
+	op        opType
+	put       *stagedPut
+	delete    *stagedDelete
+	deleteAll *stagedDeleteAll
+	rename    *stagedRename
 }
 
 type Session struct {
@@ -111,6 +117,14 @@ func (s *Session) Delete(ctx context.Context, path string) error {
 	s.staging = append(s.staging, &stagedEntry{
 		op:     opDelete,
 		delete: &stagedDelete{path: path},
+	})
+	return nil
+}
+
+func (s *Session) DeleteAll(ctx context.Context, re *regexp.Regexp) error {
+	s.staging = append(s.staging, &stagedEntry{
+		op:        opDeleteAll,
+		deleteAll: &stagedDeleteAll{regexp: re},
 	})
 	return nil
 }
@@ -216,6 +230,11 @@ func (s *Session) Commit(ctx context.Context) (err error) {
 			}
 		case opDelete:
 			err = s.paths.Delete(ctx, entry.delete.path)
+			if err != nil {
+				return err
+			}
+		case opDeleteAll:
+			err = s.paths.DeleteAll(ctx, entry.deleteAll.regexp)
 			if err != nil {
 				return err
 			}

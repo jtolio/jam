@@ -204,6 +204,37 @@ func (db *DB) Rename(ctx context.Context, re *regexp.Regexp, replacement string)
 	return nil
 }
 
+func (db *DB) DeleteAll(ctx context.Context, re *regexp.Regexp) error {
+	var queue []string
+	it, err := db.tree.SeekFirst()
+	if err != nil {
+		if err == io.EOF {
+			return nil
+		}
+		return err
+	}
+	defer it.Close()
+
+	for {
+		path, _, err := it.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		if re.MatchString(path) {
+			queue = append(queue, path)
+		}
+	}
+
+	for _, el := range queue {
+		db.tree.Delete(el)
+	}
+
+	return nil
+}
+
 func (db *DB) Serialize(ctx context.Context) (io.ReadCloser, error) {
 	// TODO: don't just dump all of the entries into the root manifest page.
 	// TODO: even if the whole manifest is in RAM, don't double the RAM usage here

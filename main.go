@@ -86,7 +86,7 @@ var (
 		FlagSet:    mountFlags,
 		Exec:       Mount,
 	}
-	cmdList = &ffcli.Command{
+	cmdLs = &ffcli.Command{
 		Name:       "ls",
 		ShortHelp:  "ls lists files in the given snapshot",
 		ShortUsage: fmt.Sprintf("%s [opts] ls [opts] [<prefix>]", os.Args[0]),
@@ -102,16 +102,31 @@ var (
 	cmdRename = &ffcli.Command{
 		Name: "rename",
 		ShortHelp: ("rename allows a regexp-based search and replace against all paths in\n\tthe system, " +
-			"forked from the latest snapshot. See\n\thttps://golang.org/pkg/regexp/#Regexp.ReplaceAllString " +
+			"forked from the latest snapshot. See\n\thttps://golang.org/pkg/regexp/#Regexp.ReplaceAll " +
 			"for semantics."),
 		ShortUsage: fmt.Sprintf("%s [opts] rename <regexp> <replacement>", os.Args[0]),
 		Exec:       Rename,
 	}
+	cmdRm = &ffcli.Command{
+		Name: "rm",
+		ShortHelp: ("rm deletes all paths that match the provided regexp.\n\t" +
+			"https://golang.org/pkg/regexp/#Regexp.Match for semantics."),
+		ShortUsage: fmt.Sprintf("%s [opts] rm <regexp>", os.Args[0]),
+		Exec:       Remove,
+	}
 	cmdRoot = &ffcli.Command{
-		ShortHelp:   "jam preserves your data",
-		ShortUsage:  fmt.Sprintf("%s [opts] <subcommand> [opts]", os.Args[0]),
-		Subcommands: []*ffcli.Command{cmdList, cmdMount, cmdRename, cmdSnaps, cmdStore, cmdUnsnap},
-		FlagSet:     sysFlags,
+		ShortHelp:  "jam preserves your data",
+		ShortUsage: fmt.Sprintf("%s [opts] <subcommand> [opts]", os.Args[0]),
+		Subcommands: []*ffcli.Command{
+			cmdLs,
+			cmdMount,
+			cmdRename,
+			cmdRm,
+			cmdSnaps,
+			cmdStore,
+			cmdUnsnap,
+		},
+		FlagSet: sysFlags,
 		Options: []ff.Option{
 			ff.WithAllowMissingConfigFile(true),
 			ff.WithConfigFileParser(ff.PlainParser),
@@ -305,6 +320,35 @@ func Rename(ctx context.Context, args []string) error {
 	defer sess.Close()
 
 	err = sess.Rename(ctx, re, args[1])
+	if err != nil {
+		return err
+	}
+
+	return sess.Commit(ctx)
+}
+
+func Remove(ctx context.Context, args []string) error {
+	if len(args) != 1 {
+		return flag.ErrHelp
+	}
+	re, err := regexp.Compile(args[0])
+	if err != nil {
+		return err
+	}
+
+	mgr, close, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+	defer close()
+
+	sess, err := mgr.NewSession(ctx)
+	if err != nil {
+		return err
+	}
+	defer sess.Close()
+
+	err = sess.DeleteAll(ctx, re)
 	if err != nil {
 		return err
 	}
