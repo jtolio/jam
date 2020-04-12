@@ -84,7 +84,7 @@ func (c *Cache) Get(ctx context.Context, path string, offset, length int64) (io.
 		if c.cached[path] {
 			return nil
 		}
-		for overflow := len(c.cached) - c.cacheSize; overflow > 0; overflow-- {
+		for overflow := len(c.cached) - c.cacheSize + 1; overflow > 0; overflow-- {
 			for cachedPath := range c.cached {
 				if c.misraGries[cachedPath] > 0 ||
 					c.openHandles[cachedPath] > 0 {
@@ -103,10 +103,12 @@ func (c *Cache) Get(ctx context.Context, path string, offset, length int64) (io.
 			return err
 		}
 		defer rc.Close()
+
 		err = c.cache.Put(ctx, path, rc)
 		if err != nil {
 			return err
 		}
+
 		c.cached[path] = true
 		return nil
 	}

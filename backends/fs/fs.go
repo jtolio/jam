@@ -45,7 +45,7 @@ func (fs *FS) Get(ctx context.Context, path string, offset, length int64) (rv io
 	}
 
 	rv = fh
-	if rand.Intn(2) == 0 {
+	if length > 0 && rand.Intn(2) == 0 {
 		// makes sure we make the rest of the code handle both cases, since other backends might do
 		// either thing and this backend is used often for testing
 		rv = struct {

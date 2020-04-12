@@ -1,10 +1,17 @@
 fuller stack tests
+cache:
+  more testing
+  make cache wait for a few requests first
+  switch to LRU strategy?
+SIS:
+  batch small files together
 features:
   hashes for syncing only what's changed
   hashes for SIS
   gc
   make rename safer
   fix symlinks
+  url sharing export
 backends:
   support adding a second backend later (syncing)
 other TODOs in comments

@@ -175,18 +175,20 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 		store = backends.Combine(stores[0], stores[1:]...)
 	}
 
-	cacheURL, err := url.Parse(*sysFlagCache)
-	if err != nil {
-		return nil, nil, err
-	}
-	cacheStore, err := backends.Create(ctx, cacheURL)
-	if err != nil {
-		return nil, nil, err
-	}
+	if *sysFlagCacheSize > 0 {
+		cacheURL, err := url.Parse(*sysFlagCache)
+		if err != nil {
+			return nil, nil, err
+		}
+		cacheStore, err := backends.Create(ctx, cacheURL)
+		if err != nil {
+			return nil, nil, err
+		}
 
-	store, err = cache.New(ctx, store, cacheStore, *sysFlagCacheReadMax, *sysFlagCacheSize)
-	if err != nil {
-		return nil, nil, err
+		store, err = cache.New(ctx, store, cacheStore, *sysFlagCacheReadMax, *sysFlagCacheSize)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	backend := enc.NewEncWrapper(

@@ -36,12 +36,13 @@ func (e *EncWrapper) Get(ctx context.Context, path string, offset, length int64)
 	encodedBlockSize := int64(e.enc.EncodedBlockSize())
 	firstBlock := offset / decodedBlockSize
 	encodedLength := int64(-1)
+	encodedOffset := firstBlock * encodedBlockSize
 	if length > 0 {
 		lastByte := offset + length - 1
 		blockOfLastByte := lastByte / decodedBlockSize
-		encodedLength = (blockOfLastByte + 1) * encodedBlockSize
+		encodedLength = (blockOfLastByte+1)*encodedBlockSize - encodedOffset
 	}
-	fh, err := e.backend.Get(ctx, path, firstBlock*encodedBlockSize, encodedLength)
+	fh, err := e.backend.Get(ctx, path, encodedOffset, encodedLength)
 	if err != nil {
 		return nil, err
 	}
