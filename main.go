@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -413,13 +414,22 @@ func Mount(ctx context.Context, args []string) error {
 
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	canceled := new(int32)
 	go func() {
-		<-c
-		sess.Close()
+		for range c {
+			if atomic.CompareAndSwapInt32(canceled, 0, 1) {
+				fmt.Printf("\runmounting %q\n", mountpoint)
+			}
+			sess.Close()
+		}
 	}()
 
 	fmt.Printf("mounted snapshot %d at %q\n", ts.UnixNano(), mountpoint)
-	return sess.Serve()
+	err = sess.Serve()
+	if atomic.LoadInt32(canceled) == 1 {
+		err = nil
+	}
+	return err
 }
 
 func List(ctx context.Context, args []string) error {
