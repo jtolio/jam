@@ -9,7 +9,6 @@ features:
   hashes for SIS
   gc
   make rename safer
-  fix symlinks
   url sharing export
 backends:
   support adding a second backend later (syncing)

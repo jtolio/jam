@@ -16,117 +16,28 @@ import (
 	"github.com/jtolds/jam/blobs"
 	"github.com/jtolds/jam/manifest"
 	"github.com/jtolds/jam/pathdb"
-	"github.com/jtolds/jam/streams"
 )
-
-type opType int
-
-const (
-	opPut       opType = 1
-	opDelete    opType = 2
-	opDeleteAll opType = 3
-	opRename    opType = 4
-)
-
-type stagedPut struct {
-	path     string
-	metadata *manifest.Metadata
-	stream   *manifest.Stream
-}
-
-type stagedDelete struct {
-	path string
-}
-
-type stagedDeleteAll struct {
-	regexp *regexp.Regexp
-}
-
-type stagedRename struct {
-	regexp      *regexp.Regexp
-	replacement string
-}
-
-type stagedEntry struct {
-	op        opType
-	put       *stagedPut
-	delete    *stagedDelete
-	deleteAll *stagedDeleteAll
-	rename    *stagedRename
-}
 
 type Session struct {
 	backend backends.Backend
 	paths   *pathdb.DB
 	blobs   *blobs.Store
-	staging []*stagedEntry
 }
 
 func newSession(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Store) *Session {
-	s := &Session{
+	return &Session{
 		backend: backend,
 		paths:   paths,
 		blobs:   blobStore,
 	}
-	return s
-}
-
-type ListEntry struct {
-	Path   string
-	Prefix bool
-	Meta   *manifest.Metadata
-
-	backend backends.Backend
-	data    *manifest.Stream
-}
-
-func (e *ListEntry) Stream(ctx context.Context) (*streams.Stream, error) {
-	return streams.Open(ctx, e.backend, e.data)
-}
-
-func (s *Session) List(ctx context.Context, prefix, delimiter string,
-	cb func(ctx context.Context, entry *ListEntry) error) error {
-	return s.paths.List(ctx, prefix, delimiter,
-		func(ctx context.Context, path string, content *manifest.Content) error {
-			if content == nil {
-				return cb(ctx, &ListEntry{Path: path, Prefix: true})
-			}
-			return cb(ctx, &ListEntry{Path: path, Meta: content.Metadata, backend: s.backend, data: content.Data})
-		})
-}
-
-var ErrNotFound = fmt.Errorf("file not found")
-
-func (s *Session) Open(ctx context.Context, path string) (*manifest.Metadata, *streams.Stream, error) {
-	content, err := s.paths.Get(ctx, path)
-	if err != nil {
-		return nil, nil, err
-	}
-	if content == nil {
-		return nil, nil, ErrNotFound
-	}
-	stream, err := streams.Open(ctx, s.backend, content.Data)
-	return content.Metadata, stream, err
-}
-
-func (s *Session) HasPrefix(ctx context.Context, prefix string) (exists bool, err error) {
-	return s.paths.HasPrefix(ctx, prefix)
 }
 
 func (s *Session) Delete(ctx context.Context, path string) error {
-	s.staging = append(s.staging, &stagedEntry{
-		op:     opDelete,
-		delete: &stagedDelete{path: path},
-	})
-	return nil
+	return s.paths.Delete(ctx, path)
 }
 
 func (s *Session) DeleteAll(ctx context.Context, re *regexp.Regexp) error {
-	s.staging = append(s.staging, &stagedEntry{
-		op:        opDeleteAll,
-		deleteAll: &stagedDeleteAll{regexp: re},
-	})
-	return nil
+	return s.paths.DeleteAll(ctx, re)
 }
 
 // PutFile causes the Session to take ownership of the data io.ReadCloser and will close it when the Session
@@ -140,22 +51,21 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 		return errs.Combine(err, data.Close())
 	}
 
-	entry := &stagedEntry{
-		op: opPut,
-		put: &stagedPut{
-			path: path,
-			metadata: &manifest.Metadata{
-				Type:     manifest.Metadata_FILE,
-				Creation: creationPB,
-				Modified: modifiedPB,
-				Mode:     mode,
-			}}}
+	content := &manifest.Content{
+		Metadata: &manifest.Metadata{
+			Type:     manifest.Metadata_FILE,
+			Creation: creationPB,
+			Modified: modifiedPB,
+			Mode:     mode,
+		},
+	}
 
-	s.staging = append(s.staging, entry)
+	err = s.blobs.Put(ctx, data, func(stream *manifest.Stream) { content.Data = stream })
+	if err != nil {
+		return err
+	}
 
-	return s.blobs.Put(ctx, data, func(stream *manifest.Stream) {
-		entry.put.stream = stream
-	})
+	return s.paths.Put(ctx, path, content)
 }
 
 func (s *Session) PutSymlink(ctx context.Context, path string, creation, modified time.Time, mode uint32, target string) error {
@@ -167,31 +77,23 @@ func (s *Session) PutSymlink(ctx context.Context, path string, creation, modifie
 		return err
 	}
 
-	s.staging = append(s.staging, &stagedEntry{
-		op: opPut,
-		put: &stagedPut{
-			path: path,
-			metadata: &manifest.Metadata{
-				Type:       manifest.Metadata_SYMLINK,
-				Creation:   creationPB,
-				Modified:   modifiedPB,
-				Mode:       mode,
-				LinkTarget: target,
-			}}})
+	content := &manifest.Content{
+		Metadata: &manifest.Metadata{
+			Type:       manifest.Metadata_SYMLINK,
+			Creation:   creationPB,
+			Modified:   modifiedPB,
+			Mode:       mode,
+			LinkTarget: target,
+		},
+	}
 
-	return nil
+	return s.paths.Put(ctx, path, content)
 }
 
 // Rename renames paths using regexp.ReplaceAllString (replacement can have
 // regexp expansions). See the docs for regexp.ReplaceAllString
 func (s *Session) Rename(ctx context.Context, re *regexp.Regexp, replacement string) error {
-	s.staging = append(s.staging, &stagedEntry{
-		op: opRename,
-		rename: &stagedRename{
-			regexp:      re,
-			replacement: replacement,
-		}})
-	return nil
+	return s.paths.Rename(ctx, re, replacement)
 }
 
 func convertTime(a, b time.Time) (*timestamp.Timestamp, *timestamp.Timestamp, error) {
@@ -211,43 +113,10 @@ func (s *Session) Flush(ctx context.Context) error {
 }
 
 func (s *Session) Commit(ctx context.Context) (err error) {
-	if len(s.staging) == 0 {
-		return nil
-	}
 	err = s.Flush(ctx)
 	if err != nil {
 		return err
 	}
-	for _, entry := range s.staging {
-		switch entry.op {
-		case opPut:
-			err = s.paths.Put(ctx, entry.put.path, &manifest.Content{
-				Metadata: entry.put.metadata,
-				Data:     entry.put.stream,
-			})
-			if err != nil {
-				return err
-			}
-		case opDelete:
-			err = s.paths.Delete(ctx, entry.delete.path)
-			if err != nil {
-				return err
-			}
-		case opDeleteAll:
-			err = s.paths.DeleteAll(ctx, entry.deleteAll.regexp)
-			if err != nil {
-				return err
-			}
-		case opRename:
-			err = s.paths.Rename(ctx, entry.rename.regexp, entry.rename.replacement)
-			if err != nil {
-				return err
-			}
-		default:
-			panic(fmt.Sprintf("unknown op type: %q", entry.op))
-		}
-	}
-
 	rc, err := s.paths.Serialize(ctx)
 	if err != nil {
 		return err
@@ -262,6 +131,5 @@ func (s *Session) Commit(ctx context.Context) (err error) {
 }
 
 func (s *Session) Close() error {
-	s.staging = nil
 	return s.paths.Close()
 }

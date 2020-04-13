@@ -7,17 +7,18 @@ USAGE
   jam [opts] <subcommand> [opts]
 
 SUBCOMMANDS
-  ls      ls lists files in the given snapshot
-  mount   mounts snap as read-only filesystem
-  rename  rename allows a regexp-based search and replace against all paths in
-          the system, forked from the latest snapshot. See
-          https://golang.org/pkg/regexp/#Regexp.ReplaceAll for semantics.
-  rm      rm deletes all paths that match the provided regexp.
-          https://golang.org/pkg/regexp/#Regexp.Match for semantics.
-  snaps   lists snapshots
-  store   store adds the given source directory to a new snapshot, forked from
-          the latest snapshot.
-  unsnap  unsnap removes an old snap
+  ls         ls lists files in the given snapshot
+  mount      mounts snap as read-only filesystem
+  rename     rename allows a regexp-based search and replace against all paths in
+             the system, forked from the latest snapshot. See
+             https://golang.org/pkg/regexp/#Regexp.ReplaceAll for semantics.
+  revert-to  revert-to makes a new snapshot that matches an older one
+  rm         rm deletes all paths that match the provided regexp.
+             https://golang.org/pkg/regexp/#Regexp.Match for semantics.
+  snaps      lists snapshots
+  store      store adds the given source directory to a new snapshot, forked from
+             the latest snapshot.
+  unsnap     unsnap removes an old snap
 
 FLAGS
   -blobs.max-unflushed 1000                    max number of objects to stage

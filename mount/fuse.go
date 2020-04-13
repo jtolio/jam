@@ -62,7 +62,7 @@ func (h *fuseHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) erro
 }
 
 type fuseNode struct {
-	snap session.Snapshot
+	snap *session.Snapshot
 	path string
 	meta *manifest.Metadata
 	data *streams.Stream
@@ -94,7 +94,7 @@ func (n *fuseNode) Lookup(ctx context.Context, name string) (fs.Node, error) {
 			return nil, fuse.ENOENT
 		}
 		meta, data = nil, nil
-	} else {
+	} else if data != nil {
 		err = data.Close()
 		if err != nil {
 			return nil, logE(err)
@@ -204,7 +204,7 @@ type Session struct {
 	fs     *fuseFS
 }
 
-func Mount(ctx context.Context, snap session.Snapshot, target string) (*Session, error) {
+func Mount(ctx context.Context, snap *session.Snapshot, target string) (*Session, error) {
 	conn, err := fuse.Mount(target, fuse.FSName("jam"), fuse.ReadOnly())
 	if err != nil {
 		return nil, err

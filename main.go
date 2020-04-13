@@ -79,6 +79,12 @@ var (
 		ShortUsage: fmt.Sprintf("%s [opts] unsnap <snapid>", os.Args[0]),
 		Exec:       Unsnap,
 	}
+	cmdRevertTo = &ffcli.Command{
+		Name:       "revert-to",
+		ShortHelp:  "revert-to makes a new snapshot that matches an older one",
+		ShortUsage: fmt.Sprintf("%s [opts] revert-to <snapid>", os.Args[0]),
+		Exec:       RevertTo,
+	}
 	cmdMount = &ffcli.Command{
 		Name:       "mount",
 		ShortHelp:  "mounts snap as read-only filesystem",
@@ -121,6 +127,7 @@ var (
 			cmdLs,
 			cmdMount,
 			cmdRename,
+			cmdRevertTo,
 			cmdRm,
 			cmdSnaps,
 			cmdStore,
@@ -283,6 +290,14 @@ func Store(ctx context.Context, args []string) error {
 			return err
 		}
 
+		if info.Mode()&os.ModeSymlink != 0 {
+			target, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			return sess.PutSymlink(ctx, targetPrefix+base, info.ModTime(), info.ModTime(), uint32(info.Mode()), target)
+		}
+
 		fh, err := os.Open(path)
 		if err != nil {
 			return err
@@ -356,7 +371,7 @@ func Remove(ctx context.Context, args []string) error {
 	return sess.Commit(ctx)
 }
 
-func getReadSnapshot(ctx context.Context, mgr *session.Manager, snapshotFlag string) (session.Snapshot, time.Time, error) {
+func getReadSnapshot(ctx context.Context, mgr *session.Manager, snapshotFlag string) (*session.Snapshot, time.Time, error) {
 	if snapshotFlag == "" || snapshotFlag == "latest" {
 		return mgr.LatestSnapshot(ctx)
 	}
@@ -459,4 +474,28 @@ func Unsnap(ctx context.Context, args []string) error {
 		return fmt.Errorf("invalid snapshot value: %q", args[0])
 	}
 	return mgr.DeleteSnapshot(ctx, time.Unix(0, nano))
+}
+
+func RevertTo(ctx context.Context, args []string) error {
+	if len(args) != 1 {
+		return flag.ErrHelp
+	}
+
+	mgr, mgrClose, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+	defer mgrClose()
+
+	nano, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid snapshot value: %q", args[0])
+	}
+
+	sess, err := mgr.RevertTo(ctx, time.Unix(0, nano))
+	if err != nil {
+		return err
+	}
+	defer sess.Close()
+	return sess.Commit(ctx)
 }

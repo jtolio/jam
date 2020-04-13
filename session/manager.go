@@ -12,9 +12,7 @@ import (
 
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/blobs"
-	"github.com/jtolds/jam/manifest"
 	"github.com/jtolds/jam/pathdb"
-	"github.com/jtolds/jam/streams"
 	"github.com/jtolds/jam/utils"
 )
 
@@ -33,13 +31,6 @@ func pathToTimestamp(path string) (time.Time, error) {
 	}
 	ts, err := time.ParseInLocation(timeFormat, strings.TrimPrefix(path, pathPrefix), time.UTC)
 	return ts, errs.Wrap(err)
-}
-
-type Snapshot interface {
-	List(ctx context.Context, prefix, delimiter string, cb func(ctx context.Context, entry *ListEntry) error) error
-	Open(ctx context.Context, path string) (*manifest.Metadata, *streams.Stream, error)
-	HasPrefix(ctx context.Context, prefix string) (exists bool, err error)
-	Close() error
 }
 
 type Manager struct {
@@ -86,7 +77,7 @@ func (s *Manager) latestTimestamp(ctx context.Context) (time.Time, error) {
 	return latest, nil
 }
 
-func (s *Manager) LatestSnapshot(ctx context.Context) (Snapshot, time.Time, error) {
+func (s *Manager) LatestSnapshot(ctx context.Context) (*Snapshot, time.Time, error) {
 	latest, err := s.latestTimestamp(ctx)
 	if err != nil {
 		return nil, time.Time{}, err
@@ -98,7 +89,7 @@ func (s *Manager) LatestSnapshot(ctx context.Context) (Snapshot, time.Time, erro
 	return snap, latest, err
 }
 
-func (s *Manager) openSession(ctx context.Context, timestamp time.Time) (*Session, error) {
+func (s *Manager) openPathDB(ctx context.Context, timestamp time.Time) (*pathdb.DB, error) {
 	err := s.confirmSnapExists(ctx, timestamp)
 	if err != nil {
 		return nil, err
@@ -111,16 +102,15 @@ func (s *Manager) openSession(ctx context.Context, timestamp time.Time) (*Sessio
 		err = errs.Combine(err, rc.Close())
 	}()
 
-	db, err := pathdb.Open(ctx, s.backend, s.blobs, rc)
+	return pathdb.Open(ctx, s.backend, s.blobs, rc)
+}
+
+func (s *Manager) OpenSnapshot(ctx context.Context, timestamp time.Time) (*Snapshot, error) {
+	db, err := s.openPathDB(ctx, timestamp)
 	if err != nil {
 		return nil, err
 	}
-
-	return newSession(s.backend, db, s.blobs), nil
-}
-
-func (s *Manager) OpenSnapshot(ctx context.Context, timestamp time.Time) (Snapshot, error) {
-	return s.openSession(ctx, timestamp)
+	return newSnapshot(s.backend, db, s.blobs), nil
 }
 
 func (s *Manager) NewSession(ctx context.Context) (*Session, error) {
@@ -128,11 +118,24 @@ func (s *Manager) NewSession(ctx context.Context) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
+	var db *pathdb.DB
 	if latest.IsZero() {
-		return newSession(s.backend, pathdb.New(s.backend, s.blobs), s.blobs), nil
+		db = pathdb.New(s.backend, s.blobs)
 	} else {
-		return s.openSession(ctx, latest)
+		db, err = s.openPathDB(ctx, latest)
+		if err != nil {
+			return nil, err
+		}
 	}
+	return newSession(s.backend, db, s.blobs), nil
+}
+
+func (s *Manager) RevertTo(ctx context.Context, timestamp time.Time) (*Session, error) {
+	db, err := s.openPathDB(ctx, timestamp)
+	if err != nil {
+		return nil, err
+	}
+	return newSession(s.backend, db, s.blobs), nil
 }
 
 func (s *Manager) DeleteSnapshot(ctx context.Context, timestamp time.Time) error {

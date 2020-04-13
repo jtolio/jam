@@ -62,26 +62,25 @@ func (c *Cache) Get(ctx context.Context, path string, offset, length int64) (io.
 				return nil, err
 			}
 		}
-	}
 
-	if c.lru.Has(path) && !c.cached[path] {
-		// TODO: we maybe can avoid doing this under a lock
-		rc, err := c.persistent.Get(ctx, path, 0, -1)
-		if err != nil {
-			c.mtx.Unlock()
-			return nil, err
+		if !c.cached[path] {
+			// TODO: we maybe can avoid doing this under a lock
+			rc, err := c.persistent.Get(ctx, path, 0, -1)
+			if err != nil {
+				c.mtx.Unlock()
+				return nil, err
+			}
+			err = errs.Combine(
+				c.cache.Put(ctx, path, rc),
+				rc.Close())
+			if err != nil {
+				c.mtx.Unlock()
+				return nil, err
+			}
+			c.cached[path] = true
 		}
-		err = errs.Combine(
-			c.cache.Put(ctx, path, rc),
-			rc.Close())
-		if err != nil {
-			c.mtx.Unlock()
-			return nil, err
-		}
-		c.cached[path] = true
-	}
 
-	if !c.cached[path] {
+	} else if !c.cached[path] {
 		c.mtx.Unlock()
 		return c.persistent.Get(ctx, path, offset, length)
 	}
@@ -141,10 +140,13 @@ func (c *Cache) Delete(ctx context.Context, path string) error {
 	c.mtx.Lock()
 	c.mg.Delete(path)
 	c.lru.Remove(path)
-	delete(c.cached, path)
-	err := c.cache.Delete(ctx, path)
+	var deleteErr error
+	if c.cached[path] {
+		delete(c.cached, path)
+		deleteErr = c.cache.Delete(ctx, path)
+	}
 	c.mtx.Unlock()
-	return errs.Combine(c.persistent.Delete(ctx, path), err)
+	return errs.Combine(c.persistent.Delete(ctx, path), deleteErr)
 }
 
 func (c *Cache) List(ctx context.Context, prefix string, cb func(ctx context.Context, path string) error) error {
