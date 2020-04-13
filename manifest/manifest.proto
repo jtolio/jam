@@ -32,6 +32,7 @@ message Metadata {
 message Content {
   Metadata metadata = 1;
   Stream data = 2;
+  string hash = 3;
 }
 
 message Entry {
@@ -49,4 +50,13 @@ message Page {
     Stream branch = 2;
     EntrySet entries = 3;
   }
+}
+
+message HashedData {
+  string hash = 1;
+  Stream data = 2;
+}
+
+message HashSet {
+  repeated HashedData hashes = 1;
 }
