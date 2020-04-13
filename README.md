@@ -1,6 +1,7 @@
 # jam
 
-jam preserves your data
+jam preserves your data. you almost certainly want [restic](https://restic.net/)
+instead.
 
 ```
 USAGE
