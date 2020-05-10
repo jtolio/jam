@@ -42,6 +42,8 @@ type Backend interface {
 	// Put creates a new object at path consisting of the provided data.
 	// Put will not be called if the path exists, so behavior for existent paths
 	// is undefined. Put may be called with a path with forward-slash delimiters.
+	// Put is expected to *not* create a partial object if data returns an error
+	// other than io.EOF, and the object should not show up in listing
 	Put(ctx context.Context, path string, data io.Reader) error
 	// Delete removes the object at path. Delete will not be called if the path
 	// doesn't exist, so behavior for nonexistent paths is undefined.

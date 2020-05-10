@@ -61,9 +61,14 @@ func (fs *FS) Get(ctx context.Context, path string, offset, length int64) (rv io
 }
 
 // Put implements the Backend interface
-func (fs *FS) Put(ctx context.Context, path string, data io.Reader) error {
+func (fs *FS) Put(ctx context.Context, path string, data io.Reader) (err error) {
+	defer func() {
+		if err != nil {
+			fs.Delete(ctx, path)
+		}
+	}()
 	localpath := filepath.Join(fs.root, path)
-	err := os.MkdirAll(filepath.Dir(localpath), 0700)
+	err = os.MkdirAll(filepath.Dir(localpath), 0700)
 	if err != nil {
 		return errs.Wrap(err)
 	}
