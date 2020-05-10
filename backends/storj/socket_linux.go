@@ -6,13 +6,12 @@ import (
 	"syscall"
 
 	"github.com/jtolds/jam/utils"
-	"storj.io/uplink"
 )
 
 const af13 = 0x38
 const cs1 = 0x8
 
-func newDialer(ctx context.Context) uplink.Transport {
+func newDialer(ctx context.Context) *net.Dialer {
 	return &net.Dialer{
 		Control: func(network, address string, c syscall.RawConn) error {
 			err := c.Control(func(fd uintptr) {

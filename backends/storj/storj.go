@@ -33,7 +33,7 @@ func New(ctx context.Context, u *url.URL) (backends.Backend, error) {
 		return nil, Error.Wrap(err)
 	}
 
-	p, err := (&uplink.Config{Transport: newDialer(ctx)}).OpenProject(ctx, access)
+	p, err := (&uplink.Config{DialContext: newDialer(ctx).DialContext}).OpenProject(ctx, access)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

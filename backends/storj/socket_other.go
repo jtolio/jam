@@ -5,10 +5,8 @@ package storj
 import (
 	"context"
 	"net"
-
-	"storj.io/uplink"
 )
 
-func newDialer(ctx context.Context) uplink.Transport {
+func newDialer(ctx context.Context) *net.Dialer {
 	return &net.Dialer{}
 }
