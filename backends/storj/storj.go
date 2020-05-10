@@ -9,6 +9,11 @@ import (
 	"storj.io/uplink"
 
 	"github.com/jtolds/jam/backends"
+	"github.com/zeebo/errs"
+)
+
+var (
+	Error = errs.Class("storj error")
 )
 
 func init() {
@@ -24,11 +29,11 @@ type Backend struct {
 func New(ctx context.Context, u *url.URL) (backends.Backend, error) {
 	access, err := uplink.ParseAccess(u.Host)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	p, err := uplink.OpenProject(ctx, access)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	parts := strings.SplitN(strings.TrimPrefix(u.Path, "/"), "/", 2)
 	var prefix string
@@ -48,27 +53,27 @@ var _ backends.Backend = (*Backend)(nil)
 func (b *Backend) Get(ctx context.Context, path string, offset, length int64) (io.ReadCloser, error) {
 	path = b.prefix + path
 	d, err := b.p.DownloadObject(ctx, b.bucket, path, &uplink.DownloadOptions{Offset: offset, Length: length})
-	return d, err
+	return d, Error.Wrap(err)
 }
 
 func (b *Backend) Put(ctx context.Context, path string, data io.Reader) error {
 	path = b.prefix + path
 	u, err := b.p.UploadObject(ctx, b.bucket, path, nil)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 	defer u.Abort()
 	_, err = io.Copy(u, data)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
-	return u.Commit()
+	return Error.Wrap(u.Commit())
 }
 
 func (b *Backend) Delete(ctx context.Context, path string) error {
 	path = b.prefix + path
 	_, err := b.p.DeleteObject(ctx, b.bucket, path)
-	return err
+	return Error.Wrap(err)
 }
 
 func (b *Backend) List(ctx context.Context, prefix string, cb func(ctx context.Context, path string) error) error {
@@ -83,9 +88,9 @@ func (b *Backend) List(ctx context.Context, prefix string, cb func(ctx context.C
 			return err
 		}
 	}
-	return it.Err()
+	return Error.Wrap(it.Err())
 }
 
 func (b *Backend) Close() error {
-	return b.p.Close()
+	return Error.Wrap(b.p.Close())
 }

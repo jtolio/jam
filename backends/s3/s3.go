@@ -16,6 +16,10 @@ import (
 	"github.com/jtolds/jam/backends"
 )
 
+var (
+	Error = errs.Class("s3 error")
+)
+
 func init() {
 	backends.Register("s3", New)
 }
@@ -30,7 +34,7 @@ func New(ctx context.Context, url *url.URL) (backends.Backend, error) {
 	sess, err := session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable})
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	return &Backend{
 		bucket: url.Host,
@@ -53,7 +57,7 @@ func (b *Backend) Get(ctx context.Context, path string, offset, length int64) (i
 		Range:  &rangeOffset,
 	})
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
 	return out.Body, nil
 }
@@ -62,7 +66,7 @@ func (b *Backend) Put(ctx context.Context, path string, data io.Reader) error {
 	// ugh, probably should spool to disk? this sucks, s3
 	seekableData, err := ioutil.ReadAll(data)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 	path = b.prefix + path
 	_, err = b.svc.PutObjectWithContext(ctx, &s3.PutObjectInput{
@@ -70,7 +74,7 @@ func (b *Backend) Put(ctx context.Context, path string, data io.Reader) error {
 		Bucket: &b.bucket,
 		Key:    &path,
 	})
-	return err
+	return Error.Wrap(err)
 }
 
 func (b *Backend) Delete(ctx context.Context, path string) error {
@@ -79,7 +83,7 @@ func (b *Backend) Delete(ctx context.Context, path string) error {
 		Bucket: &b.bucket,
 		Key:    &path,
 	})
-	return err
+	return Error.Wrap(err)
 }
 
 func (b *Backend) List(ctx context.Context, prefix string, cb func(ctx context.Context, path string) error) error {
@@ -97,7 +101,7 @@ func (b *Backend) List(ctx context.Context, prefix string, cb func(ctx context.C
 		}
 		return internalErr == nil
 	})
-	return errs.Combine(err, internalErr)
+	return Error.Wrap(errs.Combine(err, internalErr))
 }
 
 func (b *Backend) Close() error { return nil }
