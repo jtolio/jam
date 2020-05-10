@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"io"
+	"sort"
 
 	"github.com/zeebo/errs"
 
@@ -15,6 +16,7 @@ import (
 type entry struct {
 	source io.ReadCloser
 	cb     func(context.Context, *manifest.Stream) error
+	size   int64
 }
 
 type Store struct {
@@ -32,10 +34,11 @@ func NewStore(backend backends.Backend, blobSize int64, maxUnflushed int) *Store
 	}
 }
 
-func (s *Store) Put(ctx context.Context, data io.ReadCloser, cb func(context.Context, *manifest.Stream) error) error {
+func (s *Store) Put(ctx context.Context, data io.ReadCloser, size int64, cb func(context.Context, *manifest.Stream) error) error {
 	s.unflushed = append(s.unflushed, &entry{
 		source: data,
 		cb:     cb,
+		size:   size,
 	})
 	if len(s.unflushed) <= s.maxUnflushed {
 		return nil
@@ -49,6 +52,8 @@ func (s *Store) Flush(ctx context.Context) (err error) {
 	defer func() {
 		err = errs.Combine(err, closeEntries(unflushed))
 	}()
+
+	sort.Sort(entriesBySize(unflushed))
 
 	c, err := newConcat(ctx, unflushed...)
 	if err != nil {
@@ -87,3 +92,9 @@ func closeEntries(entries []*entry) error {
 	}
 	return group.Err()
 }
+
+type entriesBySize []*entry
+
+func (e entriesBySize) Len() int           { return len(e) }
+func (e entriesBySize) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
+func (e entriesBySize) Less(i, j int) bool { return e[i].size < e[j].size }

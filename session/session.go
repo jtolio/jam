@@ -67,7 +67,7 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 	}
 
 	hasher := sha256.New()
-	_, err = io.Copy(hasher, data)
+	size, err := io.Copy(hasher, data)
 	if err != nil {
 		return errs.Combine(err, data.Close())
 	}
@@ -102,7 +102,7 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 		}
 	} else {
 		// Put closes data
-		err = s.blobs.Put(ctx, data, func(ctx context.Context, stream *manifest.Stream) error {
+		err = s.blobs.Put(ctx, data, size, func(ctx context.Context, stream *manifest.Stream) error {
 			return s.hashes.Put(ctx, string(hash), stream)
 		})
 		if err != nil {
