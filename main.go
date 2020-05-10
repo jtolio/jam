@@ -25,6 +25,7 @@ import (
 	"github.com/jtolds/jam/blobs"
 	"github.com/jtolds/jam/cache"
 	"github.com/jtolds/jam/enc"
+	"github.com/jtolds/jam/hashdb"
 	"github.com/jtolds/jam/mount"
 	"github.com/jtolds/jam/session"
 	"github.com/jtolds/jam/utils"
@@ -197,6 +198,12 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 	if len(stores) > 1 {
 		store = backends.Combine(stores[0], stores[1:]...)
 	}
+	stores = nil
+	defer func() {
+		if err != nil {
+			store.Close()
+		}
+	}()
 
 	if *sysFlagCacheSize > 0 {
 		cacheURL, err := url.Parse(*sysFlagCache)
@@ -208,10 +215,12 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 			return nil, nil, err
 		}
 
-		store, err = cache.New(ctx, store, cacheStore, *sysFlagCacheSize, *sysFlagCacheMinHits)
+		wrappedStore, err := cache.New(ctx, store, cacheStore, *sysFlagCacheSize, *sysFlagCacheMinHits)
 		if err != nil {
 			return nil, nil, err
 		}
+		// only set store (cleaned up by defer) if err == nil
+		store = wrappedStore
 	}
 
 	backend := enc.NewEncWrapper(
@@ -219,10 +228,15 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 		enc.NewHMACKeyGenerator([]byte(*sysFlagPassphrase)),
 		store,
 	)
+	hashes, err := hashdb.Open(ctx, backend)
+	if err != nil {
+		return nil, nil, err
+	}
 	blobs := blobs.NewStore(backend, *sysFlagBlobSize, *sysFlagMaxUnflushed)
-	return session.NewManager(utils.DefaultLogger, backend, blobs), func() error {
-		return errs.Combine(blobs.Close(), store.Close())
-	}, nil
+	return session.NewManager(utils.DefaultLogger, backend, blobs, hashes),
+		func() error {
+			return errs.Combine(blobs.Close(), store.Close())
+		}, nil
 }
 
 func Snaps(ctx context.Context, args []string) error {
@@ -278,6 +292,7 @@ func Store(ctx context.Context, args []string) error {
 	}
 	defer sess.Close()
 
+	// TODO: don't abort the entire walk when just one file fails
 	err = filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err

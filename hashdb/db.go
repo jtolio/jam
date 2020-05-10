@@ -83,7 +83,7 @@ func (d *DB) loadStream(ctx context.Context, stream io.Reader) error {
 		}
 		for _, entry := range set.Hashes {
 			// TODO: log on overwrites
-			d.existing[entry.Hash] = entry.Data
+			d.existing[string(entry.Hash)] = entry.Data
 		}
 	}
 
@@ -113,7 +113,7 @@ func (d *DB) Flush(ctx context.Context) error {
 	var set manifest.HashSet
 	for hash, data := range d.new {
 		set.Hashes = append(set.Hashes, &manifest.HashedData{
-			Hash: hash,
+			Hash: []byte(hash),
 			Data: data,
 		})
 	}

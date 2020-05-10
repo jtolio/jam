@@ -6,22 +6,26 @@ import (
 
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/blobs"
+	"github.com/jtolds/jam/hashdb"
 	"github.com/jtolds/jam/manifest"
 	"github.com/jtolds/jam/pathdb"
 	"github.com/jtolds/jam/streams"
+	"github.com/zeebo/errs"
 )
 
 type Snapshot struct {
 	backend backends.Backend
 	paths   *pathdb.DB
 	blobs   *blobs.Store
+	hashes  *hashdb.DB
 }
 
-func newSnapshot(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Store) *Snapshot {
+func newSnapshot(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Store, hashes *hashdb.DB) *Snapshot {
 	return &Snapshot{
 		backend: backend,
 		paths:   paths,
 		blobs:   blobStore,
+		hashes:  hashes,
 	}
 }
 
@@ -45,11 +49,38 @@ func (s *Snapshot) List(ctx context.Context, prefix, delimiter string,
 			if content == nil {
 				return cb(ctx, &ListEntry{Path: path, Prefix: true})
 			}
-			return cb(ctx, &ListEntry{Path: path, Meta: content.Metadata, backend: s.backend, data: content.Data})
+
+			data, err := s.getStream(ctx, content)
+			if err != nil {
+				return err
+			}
+
+			return cb(ctx, &ListEntry{Path: path, Meta: content.Metadata, backend: s.backend, data: data})
 		})
 }
 
 var ErrNotFound = fmt.Errorf("file not found")
+
+func (s *Snapshot) getStream(ctx context.Context, content *manifest.Content) (*manifest.Stream, error) {
+	if content.Metadata.Type != manifest.Metadata_FILE {
+		return nil, nil
+	}
+
+	if content.Data != nil {
+		return content.Data, nil
+	}
+	if len(content.Hash) == 0 {
+		return nil, errs.New("no content found, but content expected")
+	}
+	data, err := s.hashes.Lookup(ctx, string(content.Hash))
+	if err != nil {
+		return nil, err
+	}
+	if data == nil {
+		return nil, errs.New("hash not found")
+	}
+	return data, nil
+}
 
 // Open will return a nil stream if the filetype is a symlink or something
 func (s *Snapshot) Open(ctx context.Context, path string) (*manifest.Metadata, *streams.Stream, error) {
@@ -60,11 +91,16 @@ func (s *Snapshot) Open(ctx context.Context, path string) (*manifest.Metadata, *
 	if content == nil {
 		return nil, nil, ErrNotFound
 	}
-	if content.Metadata.Type == manifest.Metadata_FILE {
-		stream, err := streams.Open(ctx, s.backend, content.Data)
+
+	data, err := s.getStream(ctx, content)
+	if err != nil {
+		return nil, nil, err
+	}
+	if data != nil {
+		stream, err := streams.Open(ctx, s.backend, data)
 		return content.Metadata, stream, err
 	}
-	return content.Metadata, nil, err
+	return content.Metadata, nil, nil
 }
 
 func (s *Snapshot) HasPrefix(ctx context.Context, prefix string) (exists bool, err error) {

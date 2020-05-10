@@ -12,6 +12,7 @@ import (
 
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/blobs"
+	"github.com/jtolds/jam/hashdb"
 	"github.com/jtolds/jam/pathdb"
 	"github.com/jtolds/jam/utils"
 )
@@ -37,13 +38,15 @@ type Manager struct {
 	backend backends.Backend
 	logger  utils.Logger
 	blobs   *blobs.Store
+	hashes  *hashdb.DB
 }
 
-func NewManager(logger utils.Logger, backend backends.Backend, blobStore *blobs.Store) *Manager {
+func NewManager(logger utils.Logger, backend backends.Backend, blobStore *blobs.Store, hashes *hashdb.DB) *Manager {
 	return &Manager{
 		backend: backend,
 		logger:  logger,
 		blobs:   blobStore,
+		hashes:  hashes,
 	}
 }
 
@@ -110,7 +113,7 @@ func (s *Manager) OpenSnapshot(ctx context.Context, timestamp time.Time) (*Snaps
 	if err != nil {
 		return nil, err
 	}
-	return newSnapshot(s.backend, db, s.blobs), nil
+	return newSnapshot(s.backend, db, s.blobs, s.hashes), nil
 }
 
 func (s *Manager) NewSession(ctx context.Context) (*Session, error) {
@@ -127,7 +130,7 @@ func (s *Manager) NewSession(ctx context.Context) (*Session, error) {
 			return nil, err
 		}
 	}
-	return newSession(s.backend, db, s.blobs), nil
+	return newSession(s.backend, db, s.blobs, s.hashes), nil
 }
 
 func (s *Manager) RevertTo(ctx context.Context, timestamp time.Time) (*Session, error) {
@@ -135,7 +138,7 @@ func (s *Manager) RevertTo(ctx context.Context, timestamp time.Time) (*Session, 
 	if err != nil {
 		return nil, err
 	}
-	return newSession(s.backend, db, s.blobs), nil
+	return newSession(s.backend, db, s.blobs, s.hashes), nil
 }
 
 func (s *Manager) DeleteSnapshot(ctx context.Context, timestamp time.Time) error {

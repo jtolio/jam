@@ -1,6 +1,7 @@
 package blobs
 
 import (
+	"context"
 	"io"
 
 	"github.com/zeebo/errs"
@@ -9,6 +10,8 @@ import (
 )
 
 type concat struct {
+	ctx context.Context
+
 	unprocessed []*entry
 	processing  *entry
 
@@ -19,19 +22,19 @@ type concat struct {
 	blob   string
 }
 
-func newConcat(entries ...*entry) *concat {
+func newConcat(ctx context.Context, entries ...*entry) (*concat, error) {
 	c := &concat{
+		ctx:         ctx,
 		unprocessed: entries,
 	}
 	c.Cut()
-	c.advance()
-	return c
+	return c, c.advance()
 }
 
-func (c *concat) advance() {
+func (c *concat) advance() (err error) {
 	if c.processing != nil {
 		c.capRange()
-		c.processing.cb(c.stagedStream)
+		err = c.processing.cb(c.ctx, c.stagedStream)
 		c.stagedStream = nil
 	}
 	if len(c.unprocessed) > 0 {
@@ -42,6 +45,7 @@ func (c *concat) advance() {
 	} else {
 		c.processing = nil
 	}
+	return err
 }
 
 func (c *concat) Read(p []byte) (n int, err error) {
@@ -55,7 +59,10 @@ func (c *concat) Read(p []byte) (n int, err error) {
 			if err != io.EOF {
 				return n, errs.Wrap(err)
 			}
-			c.advance()
+			err = c.advance()
+			if err != nil {
+				return n, err
+			}
 			if c.processing == nil {
 				return n, io.EOF
 			}
