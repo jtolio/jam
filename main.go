@@ -53,10 +53,12 @@ var (
 			"\tand can be comma-separated to\n\twrite to many at once"))
 	sysFlagBlobSize = sysFlags.Int64("blobs.size", 60*1024*1024,
 		"target blob size")
-	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1000,
+	sysFlagBlobsMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1000,
 		"max number of objects to stage\n\tbefore flushing (must fit file\n\tdescriptor limit)")
+	sysFlagHashesMaxUnflushed = sysFlags.Int("hashes.max-unflushed", 1000,
+		"max number of hash mappings to\n\tstage before flushing")
 	sysFlagCacheSize = sysFlags.Int("cache.size", 10, "how many blobs to cache")
-	sysFlagCache     = sysFlags.String("cache.store",
+	sysFlagCache     = sysFlags.String("cache",
 		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "cache")}).String(),
 		"where to cache blobs that are\n\tfrequently read")
 	sysFlagCacheMinHits = sysFlags.Int("cache.min-hits", 5,
@@ -228,11 +230,11 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 		enc.NewHMACKeyGenerator([]byte(*sysFlagPassphrase)),
 		store,
 	)
-	hashes, err := hashdb.Open(ctx, backend)
+	hashes, err := hashdb.Open(ctx, backend, *sysFlagHashesMaxUnflushed)
 	if err != nil {
 		return nil, nil, err
 	}
-	blobs := blobs.NewStore(backend, *sysFlagBlobSize, *sysFlagMaxUnflushed)
+	blobs := blobs.NewStore(backend, *sysFlagBlobSize, *sysFlagBlobsMaxUnflushed)
 	return session.NewManager(utils.DefaultLogger, backend, blobs, hashes),
 		func() error {
 			return errs.Combine(blobs.Close(), store.Close())

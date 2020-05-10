@@ -17,23 +17,25 @@ const versionHeader = "jam-v0\n"
 const hashPrefix = "hash/"
 
 type DB struct {
-	backend backends.Backend
+	backend      backends.Backend
+	maxUnflushed int
 
 	// TODO: do an LSM tree instead of putting all of this in RAM
 	existing map[string]*manifest.Stream
 	new      map[string]*manifest.Stream
 }
 
-func Open(ctx context.Context, backend backends.Backend) (*DB, error) {
-	db := New(backend)
+func Open(ctx context.Context, backend backends.Backend, maxUnflushed int) (*DB, error) {
+	db := New(backend, maxUnflushed)
 	return db, db.load(ctx)
 }
 
-func New(backend backends.Backend) *DB {
+func New(backend backends.Backend, maxUnflushed int) *DB {
 	return &DB{
-		backend:  backend,
-		existing: map[string]*manifest.Stream{},
-		new:      map[string]*manifest.Stream{},
+		backend:      backend,
+		maxUnflushed: maxUnflushed,
+		existing:     map[string]*manifest.Stream{},
+		new:          map[string]*manifest.Stream{},
 	}
 }
 
@@ -105,7 +107,10 @@ func (d *DB) Lookup(ctx context.Context, hash string) (*manifest.Stream, error) 
 
 func (d *DB) Put(ctx context.Context, hash string, data *manifest.Stream) error {
 	d.new[hash] = data
-	return nil
+	if len(d.new) <= d.maxUnflushed {
+		return nil
+	}
+	return d.Flush(ctx)
 }
 
 func (d *DB) Flush(ctx context.Context) error {
@@ -135,9 +140,19 @@ func (d *DB) Flush(ctx context.Context) error {
 		return err
 	}
 
-	return d.backend.Put(ctx, hashPrefix+blobs.IdGen(), io.MultiReader(
+	err = d.backend.Put(ctx, hashPrefix+blobs.IdGen(), io.MultiReader(
 		bytes.NewReader([]byte(versionHeader)),
 		utils.NewFramingReader(&out)))
+	if err != nil {
+		return err
+	}
+
+	for hash, data := range d.new {
+		d.existing[hash] = data
+	}
+	d.new = map[string]*manifest.Stream{}
+
+	return nil
 }
 
 func (d *DB) Close() error {

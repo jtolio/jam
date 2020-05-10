@@ -22,23 +22,25 @@ SUBCOMMANDS
   unsnap     unsnap removes an old snap
 
 FLAGS
-  -blobs.max-unflushed 1000                    max number of objects to stage
-                                               before flushing (must fit file
-                                               descriptor limit)
-  -blobs.size 62914560                         target blob size
-  -cache.min-hits 5                            minimum number of hits to a blob
-                                               before considering it for caching
-  -cache.size 10                               how many blobs to cache
-  -cache.store file:///home/user/.jam/cache    where to cache blobs that are
-                                               frequently read
-  -config /home/user/.jam/jam.conf             path to config file
-  -enc.block-size 16384                        encryption block size
-  -enc.passphrase ...                          encryption passphrase
-  -store file:///home/user/.jam/storage        place to store data. currently
-                                               supports:
-                                               * file://<path>,
-                                               * storj://<access>/<bucket>/<pre>
-                                               * s3://<bucket>/<prefix>
-                                               and can be comma-separated to
-                                               write to many at once
+  -blobs.max-unflushed 1000              max number of objects to stage
+                                         before flushing (must fit file
+                                         descriptor limit)
+  -blobs.size 62914560                   target blob size
+  -cache file:///home/user/.jam/cache    where to cache blobs that are
+                                         frequently read
+  -cache.min-hits 5                      minimum number of hits to a blob
+                                         before considering it for caching
+  -cache.size 10                         how many blobs to cache
+  -config /home/user/.jam/jam.conf       path to config file
+  -enc.block-size 16384                  encryption block size
+  -enc.passphrase ...                    encryption passphrase
+  -hashes.max-unflushed 1000             max number of hash mappings to
+                                         stage before flushing
+  -store file:///home/user/.jam/storage  place to store data. currently
+                                         supports:
+                                         * file://<path>,
+                                         * storj://<access>/<bucket>/<pre>
+                                         * s3://<bucket>/<prefix>
+                                         and can be comma-separated to
+                                         write to many at once
 ```
