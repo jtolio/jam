@@ -133,6 +133,10 @@ func (n *fuseNode) Attr(ctx context.Context, out *fuse.Attr) error {
 	out.Crtime = crTime
 	if n.data != nil {
 		out.Size = uint64(n.data.Length())
+		out.Blocks = out.Size / 512
+		if out.Size%512 != 0 {
+			out.Blocks++
+		}
 	}
 	switch n.meta.Type {
 	case manifest.Metadata_FILE:
