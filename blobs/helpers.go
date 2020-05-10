@@ -10,7 +10,7 @@ var (
 	encoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567")
 )
 
-func idGen() string {
+func IdGen() string {
 	// each digit in base32 is 5 bits, so we should use a multiple of
 	// 5 bits to avoid wasted per-character entropy
 	var buf [35]byte

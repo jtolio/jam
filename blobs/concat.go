@@ -90,5 +90,5 @@ func (c *concat) Cut() {
 		defer c.resetRange()
 	}
 	c.offset = 0
-	c.blob = idGen()
+	c.blob = IdGen()
 }
