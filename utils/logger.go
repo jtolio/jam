@@ -28,7 +28,7 @@ func (l LogLevel) String() string {
 	case None:
 		return "none"
 	default:
-		return fmt.Sprintf("unknown(%v)", l)
+		return fmt.Sprintf("unknown(%d)", l)
 	}
 }
 

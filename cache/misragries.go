@@ -26,7 +26,7 @@ func (m *cappedMisraGries) Observe(elem string) (capped bool) {
 		if count > m.freqCap {
 			return true
 		}
-		m.a[elem] = count + 1
+		m.a[elem] = count
 		return false
 	}
 
@@ -48,4 +48,17 @@ func (m *cappedMisraGries) Observe(elem string) (capped bool) {
 
 func (m *cappedMisraGries) Delete(elem string) {
 	delete(m.a, elem)
+}
+
+func (m *cappedMisraGries) Save() (rv []*HitCount) {
+	for elem, count := range m.a {
+		rv = append(rv, &HitCount{Entry: elem, Count: int64(count)})
+	}
+	return rv
+}
+
+func (m *cappedMisraGries) Load(vals []*HitCount) {
+	for _, v := range vals {
+		m.a[v.Entry] = int(v.Count)
+	}
 }

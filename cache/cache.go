@@ -1,20 +1,28 @@
 package cache
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"io"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/zeebo/errs"
 
 	"github.com/jtolds/jam/backends"
+	"github.com/jtolds/jam/utils"
 )
+
+const versionHeader = "jam-v0\n"
 
 // Cache is a write-through LRU blob cache using a capped Misra Gries heavy
 // hitter summary to determine which blobs to add to the LRU.
 type Cache struct {
-	persistent backends.Backend
-	cache      backends.Backend
+	persistent     backends.Backend
+	cache          backends.Backend
+	cacheStateFile string
 
 	mtx         sync.Mutex
 	mg          *cappedMisraGries
@@ -23,20 +31,34 @@ type Cache struct {
 	cached      map[string]bool
 }
 
-func New(ctx context.Context, persistent, cache backends.Backend, cacheSize, minHits int) (*Cache, error) {
+func New(ctx context.Context, persistent, cache backends.Backend, cacheSize, minHits int, cacheStateFile string) (*Cache, error) {
 	mg, err := newCappedMisraGries(cacheSize, minHits)
 	if err != nil {
 		return nil, err
 	}
 	c := &Cache{
-		persistent:  persistent,
-		cache:       cache,
-		mg:          mg,
-		lru:         newLRU(cacheSize),
-		openHandles: map[string]int{},
-		cached:      map[string]bool{},
+		persistent:     persistent,
+		cache:          cache,
+		cacheStateFile: cacheStateFile,
+		mg:             mg,
+		lru:            newLRU(cacheSize),
+		openHandles:    map[string]int{},
+		cached:         map[string]bool{},
 	}
-	return c, c.cache.List(ctx, "", func(ctx context.Context, path string) error {
+
+	err = c.load(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+var _ backends.Backend = (*Cache)(nil)
+
+func (c *Cache) load(ctx context.Context) error {
+	// make sure we know about existing cached objects
+	err := c.cache.List(ctx, "", func(ctx context.Context, path string) error {
 		c.cached[path] = true
 		if evicted, eviction := c.lru.Put(path); eviction {
 			delete(c.cached, evicted)
@@ -47,9 +69,48 @@ func New(ctx context.Context, persistent, cache backends.Backend, cacheSize, min
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	err = c.loadCache(ctx)
+	if err != nil {
+		utils.L(ctx).Normalf("cache is bad, ignoring: %v", err)
+	}
+	return nil
 }
 
-var _ backends.Backend = (*Cache)(nil)
+func (c *Cache) loadCache(ctx context.Context) error {
+	if c.cacheStateFile == "" {
+		return nil
+	}
+	fh, err := os.Open(c.cacheStateFile)
+	if err != nil {
+		return err
+	}
+	defer fh.Close()
+
+	// TODO: reduce code duplication with pathdb.load
+	v := make([]byte, len([]byte(versionHeader)))
+	_, err = io.ReadFull(fh, v)
+	if err != nil {
+		return err
+	}
+	if versionHeader != string(v) {
+		return fmt.Errorf("bad version")
+	}
+
+	var pb CacheState
+	err = utils.UnmarshalSized(fh, &pb)
+	if err != nil {
+		return err
+	}
+
+	c.mg.Load(pb.Counts)
+	c.lru.Load(pb.Lru)
+
+	return nil
+}
 
 func (c *Cache) Get(ctx context.Context, path string, offset, length int64) (io.ReadCloser, error) {
 	c.mtx.Lock()
@@ -154,5 +215,35 @@ func (c *Cache) List(ctx context.Context, prefix string, cb func(ctx context.Con
 }
 
 func (c *Cache) Close() error {
-	return errs.Combine(c.persistent.Close(), c.cache.Close())
+	return errs.Combine(c.saveCache(), c.persistent.Close(), c.cache.Close())
+}
+
+func (c *Cache) saveCache() error {
+	if c.cacheStateFile == "" {
+		return nil
+	}
+	cs := CacheState{
+		Counts: c.mg.Save(),
+		Lru:    c.lru.Save(),
+	}
+
+	serialized, err := utils.MarshalSized(&cs)
+	if err != nil {
+		return err
+	}
+
+	fh, err := os.Create(c.cacheStateFile)
+	if err != nil {
+		return err
+	}
+	defer fh.Close()
+
+	_, err = io.Copy(fh, io.MultiReader(
+		strings.NewReader(versionHeader),
+		bytes.NewReader(serialized)))
+	if err != nil {
+		return err
+	}
+
+	return fh.Close()
 }

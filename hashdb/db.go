@@ -63,7 +63,7 @@ func (d *DB) loadStream(ctx context.Context, stream io.Reader, path string) erro
 		return err
 	}
 	if versionHeader != string(v) {
-		return errs.New("invalid manifest version")
+		return errs.New("invalid hashset version")
 	}
 
 	r, err := zlib.NewReader(utils.NewUnframingReader(stream))
@@ -76,7 +76,7 @@ func (d *DB) loadStream(ctx context.Context, stream io.Reader, path string) erro
 
 	for {
 		var set manifest.HashSet
-		err := manifest.UnmarshalSized(r, &set)
+		err := utils.UnmarshalSized(r, &set)
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -123,7 +123,7 @@ func (d *DB) Flush(ctx context.Context) error {
 	}
 
 	// TODO: reduce code duplication with pathdb.Serialize
-	data, err := manifest.MarshalSized(&set)
+	data, err := utils.MarshalSized(&set)
 	if err != nil {
 		return err
 	}

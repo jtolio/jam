@@ -64,7 +64,7 @@ func (db *DB) load(ctx context.Context, stream io.Reader) error {
 
 	for {
 		var page manifest.Page
-		err := manifest.UnmarshalSized(r, &page)
+		err := utils.UnmarshalSized(r, &page)
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -271,7 +271,7 @@ func (db *DB) Serialize(ctx context.Context) (io.ReadCloser, error) {
 	page.Descendents = &manifest.Page_Entries{
 		Entries: &entries,
 	}
-	data, err := manifest.MarshalSized(&page)
+	data, err := utils.MarshalSized(&page)
 	if err != nil {
 		return nil, err
 	}

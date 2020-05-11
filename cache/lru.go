@@ -33,11 +33,10 @@ func (l *lru) Use(elem string) bool {
 }
 
 func (l *lru) Put(elem string) (evicted string, eviction bool) {
-	if l.Use(elem) {
-		return "", false
+	if !l.Use(elem) {
+		l.hash[elem] = l.list.PushFront(elem)
 	}
 
-	l.hash[elem] = l.list.PushFront(elem)
 	if l.list.Len() <= l.size {
 		return "", false
 	}
@@ -54,4 +53,19 @@ func (l *lru) Remove(elem string) bool {
 	}
 	l.list.Remove(e)
 	return true
+}
+
+func (l *lru) Save() (rv []string) {
+	for e := l.list.Front(); e != nil; e = e.Next() {
+		rv = append(rv, e.Value.(string))
+	}
+	return rv
+}
+
+func (l *lru) Load(vals []string) {
+	for i := len(vals) - 1; i >= 0; i-- {
+		if !l.Use(vals[i]) {
+			l.hash[vals[i]] = l.list.PushFront(vals[i])
+		}
+	}
 }
