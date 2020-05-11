@@ -11,6 +11,7 @@ features:
   don't make a manifest if nothing changes on store
   output results of what happened
   support multi-command sessions
+  hashfile coalescing
 backends:
   fix s3 to stream directly instead of staging
     in ram. either mitchellh/goamz or uploader type

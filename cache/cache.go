@@ -86,6 +86,9 @@ func (c *Cache) loadCache(ctx context.Context) error {
 	}
 	fh, err := os.Open(c.cacheStateFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 	defer fh.Close()
