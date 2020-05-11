@@ -33,7 +33,7 @@ var (
 			"\t* storj://<access>/<bucket>/<pre>\n" +
 			"\t* s3://<bucket>/<prefix>\n" +
 			"\tand can be comma-separated to\n\twrite to many at once"))
-	sysFlagBlobSize = sysFlags.Int64("blobs.size", 60*1024*1024,
+	sysFlagBlobSize = sysFlags.Int64("blobs.size", 32*1024*1024,
 		"target blob size")
 	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1000,
 		"max number of objects to stage\n\tbefore flushing (must fit file\n\tdescriptor limit)")
