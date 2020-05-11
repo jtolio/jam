@@ -13,5 +13,6 @@ features:
   output results of what happened
   support multi-command sessions
 backends:
-  support adding a second backend later (syncing)
+  fix s3 to stream directly instead of staging
+    in ram. either mitchellh/goamz or uploader type
 other TODOs in comments
