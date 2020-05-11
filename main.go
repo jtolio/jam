@@ -34,6 +34,7 @@ var (
 			cmdSnaps,
 			cmdStore,
 			cmdUnsnap,
+			cmdUtils,
 		},
 		FlagSet: sysFlags,
 		Options: []ff.Option{
