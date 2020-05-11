@@ -34,8 +34,6 @@ FLAGS
   -config /home/user/.jam/jam.conf       path to config file
   -enc.block-size 16384                  encryption block size
   -enc.passphrase ...                    encryption passphrase
-  -hashes.max-unflushed 1000             max number of hash mappings to
-                                         stage before flushing
   -store file:///home/user/.jam/storage  place to store data. currently
                                          supports:
                                          * file://<path>,
