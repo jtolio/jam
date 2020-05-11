@@ -2,6 +2,7 @@ package blobs
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"io/ioutil"
 	"testing"
@@ -11,21 +12,25 @@ import (
 	"github.com/jtolds/jam/manifest"
 )
 
+var ctx = context.Background()
+
 func TestConcatEmpty(t *testing.T) {
 	var calls int
 	c := newConcat(&entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte{})),
-		cb: func(m *manifest.Stream) {
+		cb: func(ctx context.Context, m *manifest.Stream, lastOfBlob bool) error {
 			calls++
 			require.Equal(t, 1, calls)
 			require.Equal(t, 0, len(m.Ranges))
+			require.True(t, lastOfBlob)
+			return nil
 		},
 	})
 
 	data, err := ioutil.ReadAll(c)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(data, nil))
-	c.Cut()
+	require.NoError(t, c.Cut(ctx))
 }
 
 func TestConcatSimple(t *testing.T) {
@@ -36,17 +41,19 @@ func TestConcatSimple(t *testing.T) {
 	}()
 	c := newConcat(&entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("hello"))),
-		cb: func(m *manifest.Stream) {
+		cb: func(ctx context.Context, m *manifest.Stream, lastOfBlob bool) error {
 			streams = append(streams, m)
 			require.Equal(t, int64(0), m.Ranges[0].Offset)
 			require.Equal(t, int64(5), m.Ranges[0].Length)
+			require.True(t, lastOfBlob)
+			return nil
 		},
 	})
 
 	data, err := ioutil.ReadAll(c)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(data, []byte("hello")))
-	c.Cut()
+	require.NoError(t, c.Cut(ctx))
 }
 
 func TestConcatTwo(t *testing.T) {
@@ -59,28 +66,32 @@ func TestConcatTwo(t *testing.T) {
 	var calls1, calls2 int
 	c := newConcat(&entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("hello "))),
-		cb: func(m *manifest.Stream) {
+		cb: func(ctx context.Context, m *manifest.Stream, lastOfBlob bool) error {
 			calls1++
 			streams = append(streams, m)
 			require.Equal(t, 1, calls1)
 			require.Equal(t, int64(0), m.Ranges[0].Offset)
 			require.Equal(t, int64(6), m.Ranges[0].Length)
+			require.False(t, lastOfBlob)
+			return nil
 		},
 	}, &entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("world!"))),
-		cb: func(m *manifest.Stream) {
+		cb: func(ctx context.Context, m *manifest.Stream, lastOfBlob bool) error {
 			calls2++
 			streams = append(streams, m)
 			require.Equal(t, 1, calls2)
 			require.Equal(t, int64(6), m.Ranges[0].Offset)
 			require.Equal(t, int64(6), m.Ranges[0].Length)
+			require.True(t, lastOfBlob)
+			return nil
 		},
 	})
 
 	data, err := ioutil.ReadAll(c)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(data, []byte("hello world!")))
-	c.Cut()
+	require.NoError(t, c.Cut(ctx))
 }
 
 func TestConcatTwoCutBefore(t *testing.T) {
@@ -93,7 +104,7 @@ func TestConcatTwoCutBefore(t *testing.T) {
 	var calls1, calls2 int
 	c := newConcat(&entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("hello "))),
-		cb: func(m *manifest.Stream) {
+		cb: func(ctx context.Context, m *manifest.Stream, lastOfBlob bool) error {
 			calls1++
 			streams = append(streams, m)
 			require.Equal(t, 1, calls1)
@@ -103,16 +114,20 @@ func TestConcatTwoCutBefore(t *testing.T) {
 			require.Equal(t, int64(0), m.Ranges[1].Offset)
 			require.Equal(t, int64(2), m.Ranges[1].Length)
 			require.NotEqual(t, m.Ranges[0].Blob, m.Ranges[1].Blob)
+			require.False(t, lastOfBlob)
+			return nil
 		},
 	}, &entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("world!"))),
-		cb: func(m *manifest.Stream) {
+		cb: func(ctx context.Context, m *manifest.Stream, lastOfBlob bool) error {
 			calls2++
 			streams = append(streams, m)
 			require.Equal(t, 1, calls2)
 			require.Equal(t, 1, len(m.Ranges))
 			require.Equal(t, int64(2), m.Ranges[0].Offset)
 			require.Equal(t, int64(6), m.Ranges[0].Length)
+			require.True(t, lastOfBlob)
+			return nil
 		},
 	})
 
@@ -120,12 +135,12 @@ func TestConcatTwoCutBefore(t *testing.T) {
 	_, err := io.ReadFull(c, buf[:])
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(buf[:], []byte("hell")))
-	c.Cut()
+	require.NoError(t, c.Cut(ctx))
 
 	data, err := ioutil.ReadAll(c)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(data, []byte("o world!")))
-	c.Cut()
+	require.NoError(t, c.Cut(ctx))
 }
 
 func TestConcatTwoCutOn(t *testing.T) {
@@ -138,21 +153,25 @@ func TestConcatTwoCutOn(t *testing.T) {
 	var calls1, calls2 int
 	c := newConcat(&entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("hello "))),
-		cb: func(m *manifest.Stream) {
+		cb: func(ctx context.Context, m *manifest.Stream, lastOfBlob bool) error {
 			calls1++
 			streams = append(streams, m)
 			require.Equal(t, 1, calls1)
 			require.Equal(t, int64(0), m.Ranges[0].Offset)
 			require.Equal(t, int64(6), m.Ranges[0].Length)
+			require.False(t, lastOfBlob)
+			return nil
 		},
 	}, &entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("world!"))),
-		cb: func(m *manifest.Stream) {
+		cb: func(ctx context.Context, m *manifest.Stream, lastOfBlob bool) error {
 			calls2++
 			streams = append(streams, m)
 			require.Equal(t, 1, calls2)
 			require.Equal(t, int64(0), m.Ranges[0].Offset)
 			require.Equal(t, int64(6), m.Ranges[0].Length)
+			require.True(t, lastOfBlob)
+			return nil
 		},
 	})
 
@@ -160,12 +179,12 @@ func TestConcatTwoCutOn(t *testing.T) {
 	_, err := io.ReadFull(c, buf[:])
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(buf[:], []byte("hello ")))
-	c.Cut()
+	require.NoError(t, c.Cut(ctx))
 
 	data, err := ioutil.ReadAll(c)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(data, []byte("world!")))
-	c.Cut()
+	require.NoError(t, c.Cut(ctx))
 }
 
 func TestConcatTwoCutAfter(t *testing.T) {
@@ -178,17 +197,19 @@ func TestConcatTwoCutAfter(t *testing.T) {
 	var calls1, calls2 int
 	c := newConcat(&entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("hello "))),
-		cb: func(m *manifest.Stream) {
+		cb: func(ctx context.Context, m *manifest.Stream, lastOfBlob bool) error {
 			calls1++
 			streams = append(streams, m)
 			require.Equal(t, 1, calls1)
 			require.Equal(t, 1, len(m.Ranges))
 			require.Equal(t, int64(0), m.Ranges[0].Offset)
 			require.Equal(t, int64(6), m.Ranges[0].Length)
+			require.True(t, lastOfBlob)
+			return nil
 		},
 	}, &entry{
 		source: ioutil.NopCloser(bytes.NewReader([]byte("world!"))),
-		cb: func(m *manifest.Stream) {
+		cb: func(ctx context.Context, m *manifest.Stream, lastOfBlob bool) error {
 			calls2++
 			streams = append(streams, m)
 			require.Equal(t, 1, calls2)
@@ -198,6 +219,8 @@ func TestConcatTwoCutAfter(t *testing.T) {
 			require.Equal(t, int64(0), m.Ranges[1].Offset)
 			require.Equal(t, int64(4), m.Ranges[1].Length)
 			require.NotEqual(t, m.Ranges[0].Blob, m.Ranges[1].Blob)
+			require.True(t, lastOfBlob)
+			return nil
 		},
 	})
 
@@ -205,10 +228,10 @@ func TestConcatTwoCutAfter(t *testing.T) {
 	_, err := io.ReadFull(c, buf[:])
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(buf[:], []byte("hello wo")))
-	c.Cut()
+	require.NoError(t, c.Cut(ctx))
 
 	data, err := ioutil.ReadAll(c)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(data, []byte("rld!")))
-	c.Cut()
+	require.NoError(t, c.Cut(ctx))
 }

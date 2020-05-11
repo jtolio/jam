@@ -55,8 +55,6 @@ var (
 		"target blob size")
 	sysFlagBlobsMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1000,
 		"max number of objects to stage\n\tbefore flushing (must fit file\n\tdescriptor limit)")
-	sysFlagHashesMaxUnflushed = sysFlags.Int("hashes.max-unflushed", 1000,
-		"max number of hash mappings to\n\tstage before flushing")
 	sysFlagCacheSize = sysFlags.Int("cache.size", 10, "how many blobs to cache")
 	sysFlagCache     = sysFlags.String("cache",
 		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "cache")}).String(),
@@ -230,7 +228,7 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 		enc.NewHMACKeyGenerator([]byte(*sysFlagPassphrase)),
 		store,
 	)
-	hashes, err := hashdb.Open(ctx, backend, *sysFlagHashesMaxUnflushed)
+	hashes, err := hashdb.Open(ctx, backend)
 	if err != nil {
 		return nil, nil, err
 	}

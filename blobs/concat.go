@@ -10,42 +10,37 @@ import (
 )
 
 type concat struct {
-	ctx context.Context
-
 	unprocessed []*entry
 	processing  *entry
+	processed   []*entry
 
-	stagedStream *manifest.Stream
-	stagedRange  *manifest.Range
+	stagedRange *manifest.Range
 
 	offset int64
 	blob   string
 }
 
-func newConcat(ctx context.Context, entries ...*entry) (*concat, error) {
+func newConcat(entries ...*entry) *concat {
 	c := &concat{
-		ctx:         ctx,
 		unprocessed: entries,
 	}
-	c.Cut()
-	return c, c.advance()
+	c.cut()
+	c.advance()
+	return c
 }
 
-func (c *concat) advance() (err error) {
+func (c *concat) advance() {
 	if c.processing != nil {
 		c.capRange()
-		err = c.processing.cb(c.ctx, c.stagedStream)
-		c.stagedStream = nil
+		c.processed = append(c.processed, c.processing)
+		c.processing = nil
 	}
 	if len(c.unprocessed) > 0 {
 		c.processing = c.unprocessed[0]
+		c.processing.stream = &manifest.Stream{}
 		c.unprocessed = c.unprocessed[1:]
-		c.stagedStream = &manifest.Stream{}
 		c.resetRange()
-	} else {
-		c.processing = nil
 	}
-	return err
 }
 
 func (c *concat) Read(p []byte) (n int, err error) {
@@ -59,10 +54,7 @@ func (c *concat) Read(p []byte) (n int, err error) {
 			if err != io.EOF {
 				return n, errs.Wrap(err)
 			}
-			err = c.advance()
-			if err != nil {
-				return n, err
-			}
+			c.advance()
 			if c.processing == nil {
 				return n, io.EOF
 			}
@@ -76,7 +68,7 @@ func (c *concat) Read(p []byte) (n int, err error) {
 func (c *concat) capRange() {
 	c.stagedRange.Length = c.offset - c.stagedRange.Offset
 	if c.stagedRange.Length > 0 {
-		c.stagedStream.Ranges = append(c.stagedStream.Ranges, c.stagedRange)
+		c.processing.stream.Ranges = append(c.processing.stream.Ranges, c.stagedRange)
 	}
 	c.stagedRange = nil
 }
@@ -91,11 +83,23 @@ func (c *concat) resetRange() {
 func (c *concat) EOF() bool    { return c.processing == nil }
 func (c *concat) Blob() string { return c.blob }
 
-func (c *concat) Cut() {
+func (c *concat) cut() {
 	if c.processing != nil {
 		c.capRange()
 		defer c.resetRange()
 	}
 	c.offset = 0
 	c.blob = IdGen()
+}
+
+func (c *concat) Cut(ctx context.Context) error {
+	c.cut()
+	for i, entry := range c.processed {
+		err := entry.cb(ctx, entry.stream, i == len(c.processed)-1)
+		if err != nil {
+			return err
+		}
+	}
+	c.processed = nil
+	return nil
 }

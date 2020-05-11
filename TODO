@@ -3,12 +3,15 @@ cache:
   more testing
   preserve misra-gries and LRU state somewhere
 SIS:
-  flush hashes when blobs are flushed
   maybe hashes should be in a blob header?
 features:
   gc
   make rename safer
   url sharing export
+  set ulimit -n automatically
+  don't make a manifest if nothing changes on store
+  output results of what happened
+  support multi-command sessions
 backends:
   support adding a second backend later (syncing)
 other TODOs in comments

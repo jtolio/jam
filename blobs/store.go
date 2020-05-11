@@ -15,8 +15,9 @@ import (
 
 type entry struct {
 	source io.ReadCloser
-	cb     func(context.Context, *manifest.Stream) error
+	cb     func(ctx context.Context, stream *manifest.Stream, lastOfBlob bool) error
 	size   int64
+	stream *manifest.Stream
 }
 
 type Store struct {
@@ -34,7 +35,7 @@ func NewStore(backend backends.Backend, blobSize int64, maxUnflushed int) *Store
 	}
 }
 
-func (s *Store) Put(ctx context.Context, data io.ReadCloser, size int64, cb func(context.Context, *manifest.Stream) error) error {
+func (s *Store) Put(ctx context.Context, data io.ReadCloser, size int64, cb func(ctx context.Context, stream *manifest.Stream, lastOfBlob bool) error) error {
 	s.unflushed = append(s.unflushed, &entry{
 		source: data,
 		cb:     cb,
@@ -55,10 +56,7 @@ func (s *Store) Flush(ctx context.Context) (err error) {
 
 	sort.Sort(entriesBySize(unflushed))
 
-	c, err := newConcat(ctx, unflushed...)
-	if err != nil {
-		return err
-	}
+	c := newConcat(unflushed...)
 
 	for !c.EOF() {
 		blob := bufio.NewReader(io.LimitReader(c, s.blobSize))
@@ -73,7 +71,10 @@ func (s *Store) Flush(ctx context.Context) (err error) {
 		if err != nil {
 			return errs.Wrap(err)
 		}
-		c.Cut()
+		err = c.Cut(ctx)
+		if err != nil {
+			return errs.Wrap(err)
+		}
 	}
 
 	return nil

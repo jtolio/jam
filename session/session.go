@@ -102,8 +102,15 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 		}
 	} else {
 		// Put closes data
-		err = s.blobs.Put(ctx, data, size, func(ctx context.Context, stream *manifest.Stream) error {
-			return s.hashes.Put(ctx, string(hash), stream)
+		err = s.blobs.Put(ctx, data, size, func(ctx context.Context, stream *manifest.Stream, lastOfBlob bool) error {
+			err := s.hashes.Put(ctx, string(hash), stream)
+			if err != nil {
+				return err
+			}
+			if lastOfBlob {
+				return s.hashes.Flush(ctx)
+			}
+			return nil
 		})
 		if err != nil {
 			return err

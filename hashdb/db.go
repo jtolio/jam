@@ -17,25 +17,23 @@ const versionHeader = "jam-v0\n"
 const hashPrefix = "hash/"
 
 type DB struct {
-	backend      backends.Backend
-	maxUnflushed int
+	backend backends.Backend
 
 	// TODO: do an LSM tree instead of putting all of this in RAM
 	existing map[string]*manifest.Stream
 	new      map[string]*manifest.Stream
 }
 
-func Open(ctx context.Context, backend backends.Backend, maxUnflushed int) (*DB, error) {
-	db := New(backend, maxUnflushed)
+func Open(ctx context.Context, backend backends.Backend) (*DB, error) {
+	db := New(backend)
 	return db, db.load(ctx)
 }
 
-func New(backend backends.Backend, maxUnflushed int) *DB {
+func New(backend backends.Backend) *DB {
 	return &DB{
-		backend:      backend,
-		maxUnflushed: maxUnflushed,
-		existing:     map[string]*manifest.Stream{},
-		new:          map[string]*manifest.Stream{},
+		backend:  backend,
+		existing: map[string]*manifest.Stream{},
+		new:      map[string]*manifest.Stream{},
 	}
 }
 
@@ -107,10 +105,7 @@ func (d *DB) Lookup(ctx context.Context, hash string) (*manifest.Stream, error) 
 
 func (d *DB) Put(ctx context.Context, hash string, data *manifest.Stream) error {
 	d.new[hash] = data
-	if len(d.new) <= d.maxUnflushed {
-		return nil
-	}
-	return d.Flush(ctx)
+	return nil
 }
 
 func (d *DB) Flush(ctx context.Context) error {
