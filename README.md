@@ -35,6 +35,8 @@ FLAGS
   -config /home/jt/.jam/jam.conf       path to config file
   -enc.block-size 16384                encryption block size
   -enc.passphrase ...                  encryption passphrase
+  -log.level normal                    default log level. can be:
+                                       debug, normal, urgent, or none
   -store file:///home/jt/.jam/storage  place to store data. currently
                                        supports:
                                        * file://<path>,

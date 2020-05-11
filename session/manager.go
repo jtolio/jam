@@ -36,15 +36,13 @@ func pathToTimestamp(path string) (time.Time, error) {
 
 type Manager struct {
 	backend backends.Backend
-	logger  utils.Logger
 	blobs   *blobs.Store
 	hashes  *hashdb.DB
 }
 
-func NewManager(logger utils.Logger, backend backends.Backend, blobStore *blobs.Store, hashes *hashdb.DB) *Manager {
+func NewManager(backend backends.Backend, blobStore *blobs.Store, hashes *hashdb.DB) *Manager {
 	return &Manager{
 		backend: backend,
-		logger:  logger,
 		blobs:   blobStore,
 		hashes:  hashes,
 	}
@@ -58,7 +56,7 @@ func (s *Manager) ListSnapshots(ctx context.Context,
 	return errs.Wrap(s.backend.List(ctx, pathPrefix, func(ctx context.Context, path string) error {
 		timestamp, err := pathToTimestamp(path)
 		if err != nil {
-			s.logger.Printf("invalid manifest format: %q, skipping. error: %v", path, err)
+			utils.L(ctx).Urgentf("invalid manifest format: %q, skipping. error: %v", path, err)
 			return nil
 		}
 		return cb(ctx, timestamp)

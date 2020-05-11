@@ -159,6 +159,7 @@ func (db *DB) Put(ctx context.Context, path string, content *manifest.Content) e
 }
 
 func (db *DB) Delete(ctx context.Context, path string) error {
+	utils.L(ctx).Normalf("deleted path %q", path)
 	db.tree.Delete(path)
 	return nil
 }
@@ -201,6 +202,8 @@ func (db *DB) Rename(ctx context.Context, re *regexp.Regexp, replacement string)
 		db.tree.Set(re.ReplaceAllString(el.path, replacement), el.content)
 	}
 
+	utils.L(ctx).Normalf("renamed %d paths", len(queue))
+
 	return nil
 }
 
@@ -231,6 +234,8 @@ func (db *DB) DeleteAll(ctx context.Context, re *regexp.Regexp) error {
 	for _, el := range queue {
 		db.tree.Delete(el)
 	}
+
+	utils.L(ctx).Normalf("deleted %d paths", len(queue))
 
 	return nil
 }

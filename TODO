@@ -2,6 +2,7 @@ fuller stack tests
 cache:
   more testing
   preserve misra-gries and LRU state somewhere
+    (would help with frequent manifest loads)
 SIS:
   maybe hashes should be in a blob header?
 features:

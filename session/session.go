@@ -18,6 +18,7 @@ import (
 	"github.com/jtolds/jam/hashdb"
 	"github.com/jtolds/jam/manifest"
 	"github.com/jtolds/jam/pathdb"
+	"github.com/jtolds/jam/utils"
 )
 
 type ReadSeekCloser interface {
@@ -96,6 +97,7 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 	}
 
 	if exists {
+		utils.L(ctx).Normalf("data for %q exists", path)
 		err = data.Close()
 		if err != nil {
 			return err
@@ -103,6 +105,7 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 	} else {
 		// Put closes data
 		err = s.blobs.Put(ctx, data, size, func(ctx context.Context, stream *manifest.Stream, lastOfBlob bool) error {
+			utils.L(ctx).Normalf("stored data for %q", path)
 			err := s.hashes.Put(ctx, string(hash), stream)
 			if err != nil {
 				return err
@@ -138,6 +141,8 @@ func (s *Session) PutSymlink(ctx context.Context, path string, creation, modifie
 			LinkTarget: target,
 		},
 	}
+
+	utils.L(ctx).Normalf("stored symlink %q", path)
 
 	return s.paths.Put(ctx, path, content)
 }
@@ -183,7 +188,14 @@ func (s *Session) Commit(ctx context.Context) (err error) {
 	// TODO: make sure this timestamp is strictly newer than all previous
 	// timestamps, and make sure you can't delete the newest timestamp,
 	// to avoid key reuse with different snapshots with the same timestamp
-	return s.backend.Put(ctx, timestampToPath(time.Now()), rc)
+	ts := time.Now()
+	err = s.backend.Put(ctx, timestampToPath(ts), rc)
+	if err != nil {
+		return err
+	}
+
+	utils.L(ctx).Normalf("wrote manifest for %v", ts)
+	return nil
 }
 
 func (s *Session) Close() error {

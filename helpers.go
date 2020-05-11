@@ -19,7 +19,6 @@ import (
 	"github.com/jtolds/jam/enc"
 	"github.com/jtolds/jam/hashdb"
 	"github.com/jtolds/jam/session"
-	"github.com/jtolds/jam/utils"
 )
 
 var (
@@ -123,7 +122,7 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 		return nil, nil, err
 	}
 	blobs := blobs.NewStore(backend, *sysFlagBlobSize, *sysFlagMaxUnflushed)
-	return session.NewManager(utils.DefaultLogger, backend, blobs, hashes),
+	return session.NewManager(backend, blobs, hashes),
 		func() error {
 			return errs.Combine(blobs.Close(), store.Close())
 		}, nil
