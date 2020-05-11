@@ -45,7 +45,7 @@ func Store(ctx context.Context, args []string) error {
 		targetPrefix = args[1]
 	}
 
-	mgr, close, err := getManager(ctx)
+	mgr, _, _, close, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func Rename(ctx context.Context, args []string) error {
 		return err
 	}
 
-	mgr, close, err := getManager(ctx)
+	mgr, _, _, close, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func Remove(ctx context.Context, args []string) error {
 		return err
 	}
 
-	mgr, close, err := getManager(ctx)
+	mgr, _, _, close, err := getManager(ctx)
 	if err != nil {
 		return err
 	}

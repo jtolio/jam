@@ -8,6 +8,8 @@ import (
 	"os"
 
 	"github.com/jtolds/jam/backends"
+	"github.com/jtolds/jam/manifest"
+	"github.com/jtolds/jam/streams"
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
@@ -19,12 +21,20 @@ var (
 		Exec:       BackendSync,
 	}
 
+	cmdHashCheck = &ffcli.Command{
+		Name:       "hashcheck",
+		ShortHelp:  "makes sure blobs exist for all hashes",
+		ShortUsage: fmt.Sprintf("%s [opts] utils hashcheck", os.Args[0]),
+		Exec:       HashCheck,
+	}
+
 	cmdUtils = &ffcli.Command{
 		Name:       "utils",
 		ShortHelp:  "miscellaneous utilities",
 		ShortUsage: fmt.Sprintf("%s [opts] utils <subcommand> [opts]", os.Args[0]),
 		Subcommands: []*ffcli.Command{
 			cmdBackendSync,
+			cmdHashCheck,
 		},
 		Exec: help,
 	}
@@ -88,6 +98,52 @@ func BackendSync(ctx context.Context, args []string) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func HashCheck(ctx context.Context, args []string) error {
+	if len(args) != 0 {
+		return flag.ErrHelp
+	}
+
+	_, backend, hashes, mgrClose, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+	defer mgrClose()
+
+	blobs := map[string]bool{}
+	missing := map[string]bool{}
+	bad := map[string]bool{}
+
+	err = backend.List(ctx, streams.BlobPrefix,
+		func(ctx context.Context, path string) error {
+			blobs[path] = true
+			return nil
+		})
+	if err != nil {
+		return err
+	}
+
+	err = hashes.Iterate(ctx, func(ctx context.Context, hash, hashset string, stream *manifest.Stream) error {
+		for _, r := range stream.Ranges {
+			if !blobs[streams.BlobPath(r.Blob)] {
+				if !missing[r.Blob] {
+					missing[r.Blob] = true
+					fmt.Printf("missing blob: %s\n", r.Blob)
+				}
+				if !bad[hashset] {
+					bad[hashset] = true
+					fmt.Printf("from hash set: %s\n", hashset)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	return nil

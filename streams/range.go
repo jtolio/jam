@@ -11,8 +11,10 @@ import (
 	"github.com/jtolds/jam/manifest"
 )
 
+const BlobPrefix = "blob/"
+
 func BlobPath(id string) string {
-	return "blob/" + id[:2] + "/" + id[2:]
+	return BlobPrefix + id[:2] + "/" + id[2:]
 }
 
 func openRange(ctx context.Context, backend backends.Backend, r *manifest.Range, offset int64) (io.ReadCloser, error) {

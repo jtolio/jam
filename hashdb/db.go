@@ -22,6 +22,7 @@ type DB struct {
 	// TODO: do an LSM tree instead of putting all of this in RAM
 	existing map[string]*manifest.Stream
 	new      map[string]*manifest.Stream
+	source   map[string]string
 }
 
 func Open(ctx context.Context, backend backends.Backend) (*DB, error) {
@@ -34,6 +35,7 @@ func New(backend backends.Backend) *DB {
 		backend:  backend,
 		existing: map[string]*manifest.Stream{},
 		new:      map[string]*manifest.Stream{},
+		source:   map[string]string{},
 	}
 }
 
@@ -46,11 +48,11 @@ func (d *DB) load(ctx context.Context) error {
 			}
 			defer r.Close()
 
-			return d.loadStream(ctx, r)
+			return d.loadStream(ctx, r, path)
 		})
 }
 
-func (d *DB) loadStream(ctx context.Context, stream io.Reader) error {
+func (d *DB) loadStream(ctx context.Context, stream io.Reader, path string) error {
 	// TODO: reduce code duplication with pathdb.load
 	v := make([]byte, len([]byte(versionHeader)))
 	_, err := io.ReadFull(stream, v)
@@ -82,8 +84,10 @@ func (d *DB) loadStream(ctx context.Context, stream io.Reader) error {
 			return err
 		}
 		for _, entry := range set.Hashes {
+			hash := string(entry.Hash)
 			// TODO: log on overwrites
-			d.existing[string(entry.Hash)] = entry.Data
+			d.existing[hash] = entry.Data
+			d.source[hash] = path
 		}
 	}
 
@@ -151,5 +155,21 @@ func (d *DB) Flush(ctx context.Context) error {
 }
 
 func (d *DB) Close() error {
+	return nil
+}
+
+func (d *DB) Iterate(ctx context.Context, cb func(ctx context.Context, hash, hashset string, data *manifest.Stream) error) error {
+	for hash, data := range d.existing {
+		err := cb(ctx, hash, d.source[hash], data)
+		if err != nil {
+			return err
+		}
+	}
+	for hash, data := range d.new {
+		err := cb(ctx, hash, "", data)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }

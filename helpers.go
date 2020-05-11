@@ -58,9 +58,9 @@ func homeDir() string {
 
 func help(ctx context.Context, args []string) error { return flag.ErrHelp }
 
-func getManager(ctx context.Context) (mgr *session.Manager, close func() error, err error) {
+func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Backend, hashes *hashdb.DB, close func() error, err error) {
 	if *sysFlagPassphrase == "" {
-		return nil, nil, fmt.Errorf("invalid configuration, no root key specified")
+		return nil, nil, nil, nil, fmt.Errorf("invalid configuration, no root key specified")
 	}
 
 	var stores []backends.Backend
@@ -74,11 +74,11 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 	for _, storeurl := range strings.Split(*sysFlagStore, ",") {
 		u, err := url.Parse(storeurl)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		store, err := backends.Create(ctx, u)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		stores = append(stores, store)
 	}
@@ -97,34 +97,34 @@ func getManager(ctx context.Context) (mgr *session.Manager, close func() error, 
 	if *sysFlagCacheSize > 0 {
 		cacheURL, err := url.Parse(*sysFlagCache)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		cacheStore, err := backends.Create(ctx, cacheURL)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 
 		wrappedStore, err := cache.New(ctx, store, cacheStore, *sysFlagCacheSize, *sysFlagCacheMinHits)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		// only set store (cleaned up by defer) if err == nil
 		store = wrappedStore
 	}
 
-	backend := enc.NewEncWrapper(
+	store = enc.NewEncWrapper(
 		enc.NewSecretboxCodec(*sysFlagBlockSize),
 		enc.NewHMACKeyGenerator([]byte(*sysFlagPassphrase)),
 		store,
 	)
-	hashes, err := hashdb.Open(ctx, backend)
+	hashes, err = hashdb.Open(ctx, store)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	blobs := blobs.NewStore(backend, *sysFlagBlobSize, *sysFlagMaxUnflushed)
-	return session.NewManager(backend, blobs, hashes),
+	blobs := blobs.NewStore(store, *sysFlagBlobSize, *sysFlagMaxUnflushed)
+	return session.NewManager(store, blobs, hashes), store, hashes,
 		func() error {
-			return errs.Combine(blobs.Close(), store.Close())
+			return errs.Combine(blobs.Close(), hashes.Close(), store.Close())
 		}, nil
 }
 

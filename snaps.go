@@ -39,7 +39,7 @@ func Snaps(ctx context.Context, args []string) error {
 		return flag.ErrHelp
 	}
 
-	mgr, mgrClose, err := getManager(ctx)
+	mgr, _, _, mgrClose, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func Unsnap(ctx context.Context, args []string) error {
 		return flag.ErrHelp
 	}
 
-	mgr, mgrClose, err := getManager(ctx)
+	mgr, _, _, mgrClose, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func RevertTo(ctx context.Context, args []string) error {
 		return flag.ErrHelp
 	}
 
-	mgr, mgrClose, err := getManager(ctx)
+	mgr, _, _, mgrClose, err := getManager(ctx)
 	if err != nil {
 		return err
 	}

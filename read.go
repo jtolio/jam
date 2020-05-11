@@ -49,7 +49,7 @@ func Mount(ctx context.Context, args []string) error {
 		return err
 	}
 
-	mgr, mgrClose, err := getManager(ctx)
+	mgr, _, _, mgrClose, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func List(ctx context.Context, args []string) error {
 		return flag.ErrHelp
 	}
 
-	mgr, mgrClose, err := getManager(ctx)
+	mgr, _, _, mgrClose, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
