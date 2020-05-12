@@ -3,12 +3,15 @@ package storj
 import (
 	"context"
 	"io"
+	"net"
 	"net/url"
 	"strings"
+	"syscall"
 
 	"storj.io/uplink"
 
 	"github.com/jtolds/jam/backends"
+	"github.com/jtolds/jam/utils"
 	"github.com/zeebo/errs"
 )
 
@@ -26,12 +29,53 @@ type Backend struct {
 	prefix string
 }
 
+type dialer struct {
+	dialer uplink.Transport
+}
+
+func (d dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	conn, err := d.dialer.DialContext(ctx, network, address)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := conn.(interface {
+		SyscallConn() (syscall.RawConn, error)
+	}).SyscallConn()
+	if err != nil {
+		return nil, err
+	}
+	err = raw.Control(func(fd uintptr) {
+		err := syscall.SetsockoptString(
+			int(fd), syscall.IPPROTO_TCP, syscall.TCP_CONGESTION, "ledbat")
+		if err != nil {
+			utils.L(ctx).Debugf("failed to set congestion controller: %v", err)
+		}
+		err = syscall.SetsockoptByte(
+			int(fd), syscall.SOL_IP, syscall.IP_TOS, 0)
+		if err != nil {
+			utils.L(ctx).Debugf("failed to set ip tos: %v", err)
+		}
+		err = syscall.SetsockoptInt(
+			int(fd), syscall.SOL_SOCKET, syscall.SO_PRIORITY, 0)
+		if err != nil {
+			utils.L(ctx).Debugf("failed to set socket priority: %v", err)
+		}
+	})
+	if err != nil {
+		utils.L(ctx).Debugf("failed to set socket settings: %v", err)
+	}
+	return conn, nil
+}
+
 func New(ctx context.Context, u *url.URL) (backends.Backend, error) {
 	access, err := uplink.ParseAccess(u.Host)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	p, err := uplink.OpenProject(ctx, access)
+
+	cfg := uplink.Config{Transport: dialer{dialer: &net.Dialer{}}}
+
+	p, err := cfg.OpenProject(ctx, access)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
