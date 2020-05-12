@@ -32,6 +32,7 @@ type Session struct {
 	paths   *pathdb.DB
 	blobs   *blobs.Store
 	hashes  *hashdb.DB
+	pending map[string]bool
 }
 
 func newSession(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Store, hashes *hashdb.DB) *Session {
@@ -40,6 +41,7 @@ func newSession(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Sto
 		paths:   paths,
 		blobs:   blobStore,
 		hashes:  hashes,
+		pending: map[string]bool{},
 	}
 }
 
@@ -91,25 +93,31 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 		Hash: hash,
 	}
 
-	exists, err := s.hashes.Has(ctx, string(hash))
+	hashStr := string(hash)
+
+	exists, err := s.hashes.Has(ctx, hashStr)
 	if err != nil {
 		return errs.Combine(err, data.Close())
 	}
 
-	if exists {
-		utils.L(ctx).Normalf("data for %q exists", path)
+	if exists || s.pending[hashStr] {
+		utils.L(ctx).Normalf("data for %q is duplicate", path)
 		err = data.Close()
 		if err != nil {
 			return err
 		}
+
 	} else {
-		// Put closes data
+		s.pending[hashStr] = true
+
+		// Put closes data so we don't have to call Close
 		err = s.blobs.Put(ctx, data, size, func(ctx context.Context, stream *manifest.Stream, lastOfBlob bool) error {
 			utils.L(ctx).Normalf("stored data for %q", path)
 			err := s.hashes.Put(ctx, string(hash), stream)
 			if err != nil {
 				return err
 			}
+			delete(s.pending, hashStr)
 			if lastOfBlob {
 				return s.hashes.Flush(ctx)
 			}

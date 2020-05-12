@@ -9,7 +9,6 @@ features:
   url sharing export
   set ulimit -n automatically
   don't make a manifest if nothing changes on store
-  output results of what happened
   support multi-command sessions
   hashfile coalescing
 backends:
