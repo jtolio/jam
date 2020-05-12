@@ -46,7 +46,7 @@ func (d dialer) DialContext(ctx context.Context, network, address string) (net.C
 	}
 	err = raw.Control(func(fd uintptr) {
 		err := syscall.SetsockoptString(
-			int(fd), syscall.IPPROTO_TCP, syscall.TCP_CONGESTION, "ledbat")
+			int(fd), syscall.IPPROTO_TCP, syscall.TCP_CONGESTION, "lp")
 		if err != nil {
 			utils.L(ctx).Debugf("failed to set congestion controller: %v", err)
 		}
