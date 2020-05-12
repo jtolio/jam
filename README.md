@@ -26,7 +26,7 @@ FLAGS
   -blobs.max-unflushed 1000               max number of objects to stage
                                           before flushing (must fit file
                                           descriptor limit)
-  -blobs.size 62914560                    target blob size
+  -blobs.size 33554432                    target blob size
   -cache file:///home/jt/.jam/cache       where to cache blobs that are
                                           frequently read
   -cache.min-hits 5                       minimum number of hits to a blob
@@ -36,7 +36,7 @@ FLAGS
                                           local disk, empty to disable
   -config /home/jt/.jam/jam.conf          path to config file
   -enc.block-size 16384                   encryption block size
-  -enc.passphrase ...                     encryption passphrase
+  -enc.key ...                            hex-encoded 32 byte encryption key
   -log.level normal                       default log level. can be:
                                           debug, normal, urgent, or none
   -store file:///home/jt/.jam/storage     place to store data. currently
