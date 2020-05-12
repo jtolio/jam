@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"net/url"
@@ -24,8 +26,8 @@ import (
 var (
 	sysFlagBlockSize = sysFlags.Int("enc.block-size", 16*1024,
 		"encryption block size")
-	sysFlagPassphrase = sysFlags.String("enc.passphrase", "",
-		"encryption passphrase")
+	sysFlagEncKey = sysFlags.String("enc.key", "",
+		"hex-encoded 32 byte encryption key")
 	sysFlagStore = sysFlags.String("store",
 		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "storage")}).String(),
 		("place to store data. currently\n\tsupports:\n" +
@@ -62,8 +64,8 @@ func homeDir() string {
 func help(ctx context.Context, args []string) error { return flag.ErrHelp }
 
 func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Backend, hashes *hashdb.DB, close func() error, err error) {
-	if *sysFlagPassphrase == "" {
-		return nil, nil, nil, nil, fmt.Errorf("invalid configuration, no root key specified")
+	if *sysFlagEncKey == "" {
+		return nil, nil, nil, nil, fmt.Errorf("invalid configuration, no root encryption key specified")
 	}
 
 	var stores []backends.Backend
@@ -116,9 +118,17 @@ func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Bac
 		store = wrappedStore
 	}
 
+	encKey, err := hex.DecodeString(*sysFlagEncKey)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("encryption key invalid hex: %w", err)
+	}
+	if len(encKey) != sha256.Size {
+		return nil, nil, nil, nil, fmt.Errorf("encryption key invalid length")
+	}
+
 	store = enc.NewEncWrapper(
 		enc.NewSecretboxCodec(*sysFlagBlockSize),
-		enc.NewHMACKeyGenerator([]byte(*sysFlagPassphrase)),
+		enc.NewHMACKeyGenerator(encKey),
 		store,
 	)
 	hashes, err = hashdb.Open(ctx, store)
