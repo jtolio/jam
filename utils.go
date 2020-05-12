@@ -30,6 +30,13 @@ var (
 		Exec:       HashCheck,
 	}
 
+	cmdHashCoalesce = &ffcli.Command{
+		Name:       "hash-coalesce",
+		ShortHelp:  "combine hash files",
+		ShortUsage: fmt.Sprintf("%s [opts] utils hash-coalesce", os.Args[0]),
+		Exec:       HashCoalesce,
+	}
+
 	cmdNewEncKey = &ffcli.Command{
 		Name:       "new-enc-key",
 		ShortHelp:  "creates a new encryption key if you need one",
@@ -44,6 +51,7 @@ var (
 		Subcommands: []*ffcli.Command{
 			cmdBackendSync,
 			cmdHashCheck,
+			cmdHashCoalesce,
 			cmdNewEncKey,
 		},
 		Exec: help,
@@ -172,4 +180,18 @@ func NewEncKey(ctx context.Context, args []string) error {
 
 	fmt.Println("new key:", hex.EncodeToString(key[:]))
 	return nil
+}
+
+func HashCoalesce(ctx context.Context, args []string) error {
+	if len(args) != 0 {
+		return flag.ErrHelp
+	}
+
+	_, _, hashes, mgrClose, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+	defer mgrClose()
+
+	return hashes.Coalesce(ctx)
 }

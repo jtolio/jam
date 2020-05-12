@@ -23,6 +23,7 @@ type DB struct {
 	existing map[string]*manifest.Stream
 	new      map[string]*manifest.Stream
 	source   map[string]string
+	paths    []string
 }
 
 func Open(ctx context.Context, backend backends.Backend) (*DB, error) {
@@ -40,7 +41,8 @@ func New(backend backends.Backend) *DB {
 }
 
 func (d *DB) load(ctx context.Context) error {
-	return d.backend.List(ctx, hashPrefix,
+	var paths []string
+	err := d.backend.List(ctx, hashPrefix,
 		func(ctx context.Context, path string) error {
 			r, err := d.backend.Get(ctx, path, 0, -1)
 			if err != nil {
@@ -48,8 +50,14 @@ func (d *DB) load(ctx context.Context) error {
 			}
 			defer r.Close()
 
+			paths = append(paths, path)
 			return d.loadStream(ctx, r, path)
 		})
+	if err != nil {
+		return err
+	}
+	d.paths = paths
+	return nil
 }
 
 func (d *DB) loadStream(ctx context.Context, stream io.Reader, path string) error {
@@ -85,7 +93,7 @@ func (d *DB) loadStream(ctx context.Context, stream io.Reader, path string) erro
 		}
 		for _, entry := range set.Hashes {
 			hash := string(entry.Hash)
-			// TODO: log on overwrites
+			// TODO: log on overwrites?
 			d.existing[hash] = entry.Data
 			d.source[hash] = path
 		}
@@ -112,10 +120,14 @@ func (d *DB) Put(ctx context.Context, hash string, data *manifest.Stream) error 
 	return nil
 }
 
-func (d *DB) Flush(ctx context.Context) error {
+func (d *DB) flush(ctx context.Context, hashes map[string]*manifest.Stream) (string, error) {
+	if len(hashes) == 0 {
+		return "", nil
+	}
+
 	// TODO: LSM tree instead of this
 	var set manifest.HashSet
-	for hash, data := range d.new {
+	for hash, data := range hashes {
 		set.Hashes = append(set.Hashes, &manifest.HashedData{
 			Hash: []byte(hash),
 			Data: data,
@@ -125,29 +137,40 @@ func (d *DB) Flush(ctx context.Context) error {
 	// TODO: reduce code duplication with pathdb.Serialize
 	data, err := utils.MarshalSized(&set)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	var out bytes.Buffer
 	compressor := zlib.NewWriter(&out)
 	_, err = compressor.Write(data)
 	if err != nil {
-		return err
+		return "", err
 	}
 	err = compressor.Close()
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	err = d.backend.Put(ctx, hashPrefix+blobs.IdGen(), io.MultiReader(
+	path := hashPrefix + blobs.IdGen()
+
+	err = d.backend.Put(ctx, path, io.MultiReader(
 		bytes.NewReader([]byte(versionHeader)),
 		utils.NewFramingReader(&out)))
 	if err != nil {
-		return err
+		return "", err
 	}
 
+	return path, nil
+}
+
+func (d *DB) Flush(ctx context.Context) error {
+	path, err := d.flush(ctx, d.new)
+	if err != nil {
+		return err
+	}
 	for hash, data := range d.new {
 		d.existing[hash] = data
+		d.source[hash] = path
 	}
 	d.new = map[string]*manifest.Stream{}
 
@@ -171,5 +194,35 @@ func (d *DB) Iterate(ctx context.Context, cb func(ctx context.Context, hash, has
 			return err
 		}
 	}
+	return nil
+}
+
+func (d *DB) Coalesce(ctx context.Context) error {
+	// TODO: seems silly to write out a small hashset only to delete it
+	err := d.Flush(ctx)
+	if err != nil {
+		return err
+	}
+	newpath, err := d.flush(ctx, d.existing)
+	if err != nil {
+		return err
+	}
+	utils.L(ctx).Normalf("wrote new hashset with %d hashes. deleting old hashsets...", len(d.existing))
+	deleted := map[string]bool{}
+	for _, oldpath := range d.paths {
+		if deleted[oldpath] {
+			continue
+		}
+		err = d.backend.Delete(ctx, oldpath)
+		if err != nil {
+			return err
+		}
+		deleted[oldpath] = true
+	}
+	d.paths = []string{newpath}
+	for hash := range d.source {
+		d.source[hash] = newpath
+	}
+	utils.L(ctx).Normalf("deleted %d old hashsets.", len(deleted))
 	return nil
 }

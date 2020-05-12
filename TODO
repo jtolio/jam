@@ -3,6 +3,8 @@ cache:
   more testing
 SIS:
   maybe hashes should be in a blob header?
+make sure it works well to be mounted and to call store at the same time
+  (cache state issues? don't update read cache on writes?)
 features:
   gc
   make rename safer
@@ -10,7 +12,6 @@ features:
   set ulimit -n automatically
   don't make a manifest if nothing changes on store
   support multi-command sessions
-  hashfile coalescing
 backends:
   fix s3 to stream directly instead of staging
     in ram. either mitchellh/goamz or uploader type
