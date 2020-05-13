@@ -13,8 +13,12 @@ import (
 
 const BlobPrefix = "blob/"
 
+func IdPathComponent(id string) string {
+	return id[:2] + "/" + id[2:]
+}
+
 func BlobPath(id string) string {
-	return BlobPrefix + id[:2] + "/" + id[2:]
+	return BlobPrefix + IdPathComponent(id)
 }
 
 func openRange(ctx context.Context, backend backends.Backend, r *manifest.Range, offset int64) (io.ReadCloser, error) {

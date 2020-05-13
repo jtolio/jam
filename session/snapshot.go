@@ -66,9 +66,6 @@ func (s *Snapshot) getStream(ctx context.Context, content *manifest.Content) (*m
 		return nil, nil
 	}
 
-	if content.Data != nil {
-		return content.Data, nil
-	}
 	if len(content.Hash) == 0 {
 		return nil, errs.New("no content found, but content expected")
 	}

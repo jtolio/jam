@@ -31,8 +31,11 @@ message Metadata {
 
 message Content {
   Metadata metadata = 1;
-  Stream data = 2;
   bytes hash = 3;
+
+  // pre-SIS deprecated fields
+  reserved 2;
+  reserved "data";
 }
 
 message Entry {

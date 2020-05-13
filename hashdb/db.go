@@ -9,6 +9,7 @@ import (
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/blobs"
 	"github.com/jtolds/jam/manifest"
+	"github.com/jtolds/jam/streams"
 	"github.com/jtolds/jam/utils"
 	"github.com/zeebo/errs"
 )
@@ -151,7 +152,7 @@ func (d *DB) flush(ctx context.Context, hashes map[string]*manifest.Stream) (str
 		return "", err
 	}
 
-	path := hashPrefix + blobs.IdGen()
+	path := hashPrefix + streams.IdPathComponent(blobs.IdGen())
 
 	err = d.backend.Put(ctx, path, io.MultiReader(
 		bytes.NewReader([]byte(versionHeader)),
