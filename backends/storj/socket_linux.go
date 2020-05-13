@@ -10,6 +10,7 @@ import (
 )
 
 const af13 = 0x38
+const cs1 = 0x8
 
 func newDialer(ctx context.Context) uplink.Transport {
 	return &net.Dialer{
@@ -21,7 +22,7 @@ func newDialer(ctx context.Context) uplink.Transport {
 					utils.L(ctx).Debugf("failed to set congestion controller: %v", err)
 				}
 				err = syscall.SetsockoptByte(
-					int(fd), syscall.SOL_IP, syscall.IP_TOS, af13)
+					int(fd), syscall.SOL_IP, syscall.IP_TOS, cs1)
 				if err != nil {
 					utils.L(ctx).Debugf("failed to set ip tos: %v", err)
 				}
