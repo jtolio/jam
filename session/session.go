@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -111,18 +112,19 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 		s.pending[hashStr] = true
 
 		// Put closes data so we don't have to call Close
-		err = s.blobs.Put(ctx, data, size, func(ctx context.Context, stream *manifest.Stream, lastOfBlob bool) error {
-			utils.L(ctx).Normalf("stored data for %q", path)
-			err := s.hashes.Put(ctx, string(hash), stream)
-			if err != nil {
-				return err
-			}
-			delete(s.pending, hashStr)
-			if lastOfBlob {
-				return s.hashes.Flush(ctx)
-			}
-			return nil
-		})
+		err = s.blobs.Put(ctx, data, size, &sortKey{col1: filepath.Dir(path), col2: size},
+			func(ctx context.Context, stream *manifest.Stream, lastOfBlob bool) error {
+				utils.L(ctx).Normalf("stored data for %q", path)
+				err := s.hashes.Put(ctx, string(hash), stream)
+				if err != nil {
+					return err
+				}
+				delete(s.pending, hashStr)
+				if lastOfBlob {
+					return s.hashes.Flush(ctx)
+				}
+				return nil
+			})
 		if err != nil {
 			return err
 		}
@@ -208,4 +210,20 @@ func (s *Session) Commit(ctx context.Context) (err error) {
 
 func (s *Session) Close() error {
 	return s.paths.Close()
+}
+
+type sortKey struct {
+	col1 string
+	col2 int64
+}
+
+func (a *sortKey) Less(bi blobs.SortKey) bool {
+	b := bi.(*sortKey)
+	if a.col1 < b.col1 {
+		return true
+	}
+	if a.col1 > b.col1 {
+		return false
+	}
+	return a.col2 < b.col2
 }

@@ -14,10 +14,11 @@ import (
 )
 
 type entry struct {
-	source io.ReadCloser
-	cb     func(ctx context.Context, stream *manifest.Stream, lastOfBlob bool) error
-	size   int64
-	stream *manifest.Stream
+	source  io.ReadCloser
+	cb      func(ctx context.Context, stream *manifest.Stream, lastOfBlob bool) error
+	size    int64
+	sortKey SortKey
+	stream  *manifest.Stream
 }
 
 type Store struct {
@@ -35,11 +36,16 @@ func NewStore(backend backends.Backend, blobSize int64, maxUnflushed int) *Store
 	}
 }
 
-func (s *Store) Put(ctx context.Context, data io.ReadCloser, size int64, cb func(ctx context.Context, stream *manifest.Stream, lastOfBlob bool) error) error {
+type SortKey interface {
+	Less(b SortKey) bool
+}
+
+func (s *Store) Put(ctx context.Context, data io.ReadCloser, size int64, sortKey SortKey, cb func(ctx context.Context, stream *manifest.Stream, lastOfBlob bool) error) error {
 	s.unflushed = append(s.unflushed, &entry{
-		source: data,
-		cb:     cb,
-		size:   size,
+		source:  data,
+		cb:      cb,
+		size:    size,
+		sortKey: sortKey,
 	})
 	if len(s.unflushed) <= s.maxUnflushed {
 		return nil
@@ -54,7 +60,7 @@ func (s *Store) Flush(ctx context.Context) (err error) {
 		err = errs.Combine(err, closeEntries(unflushed))
 	}()
 
-	sort.Sort(entriesBySize(unflushed))
+	sort.Sort(entriesBySortKey(unflushed))
 
 	c := newConcat(unflushed...)
 
@@ -94,8 +100,8 @@ func closeEntries(entries []*entry) error {
 	return group.Err()
 }
 
-type entriesBySize []*entry
+type entriesBySortKey []*entry
 
-func (e entriesBySize) Len() int           { return len(e) }
-func (e entriesBySize) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
-func (e entriesBySize) Less(i, j int) bool { return e[i].size < e[j].size }
+func (e entriesBySortKey) Len() int           { return len(e) }
+func (e entriesBySortKey) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
+func (e entriesBySortKey) Less(i, j int) bool { return e[i].sortKey.Less(e[j].sortKey) }
