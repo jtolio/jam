@@ -188,6 +188,10 @@ func (s *Session) Commit(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	if !s.paths.Changed() {
+		utils.L(ctx).Normalf("no changes detected, skipping new manifest")
+		return nil
+	}
 	rc, err := s.paths.Serialize(ctx)
 	if err != nil {
 		return err

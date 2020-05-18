@@ -10,7 +10,6 @@ features:
   make rename safer
   url sharing export
   set ulimit -n automatically
-  don't make a manifest if nothing changes on store
   support multi-command sessions
 backends:
   fix s3 to stream directly instead of staging

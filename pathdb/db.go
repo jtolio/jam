@@ -24,6 +24,7 @@ const versionHeader = "jam-v0\n"
 type DB struct {
 	backend backends.Backend
 	blobs   *blobs.Store
+	changed bool
 	// TODO: don't expect the whole manifest to fit into RAM
 	tree *b.Tree
 }
@@ -155,12 +156,14 @@ func (db *DB) List(ctx context.Context, prefix, delimiter string,
 
 func (db *DB) Put(ctx context.Context, path string, content *manifest.Content) error {
 	db.tree.Set(path, content)
+	db.changed = true
 	return nil
 }
 
 func (db *DB) Delete(ctx context.Context, path string) error {
 	utils.L(ctx).Normalf("deleted path %q", path)
 	db.tree.Delete(path)
+	db.changed = true
 	return nil
 }
 
@@ -202,6 +205,10 @@ func (db *DB) Rename(ctx context.Context, re *regexp.Regexp, replacement string)
 		db.tree.Set(re.ReplaceAllString(el.path, replacement), el.content)
 	}
 
+	if len(queue) > 0 {
+		db.changed = true
+	}
+
 	utils.L(ctx).Normalf("renamed %d paths", len(queue))
 
 	return nil
@@ -234,10 +241,17 @@ func (db *DB) DeleteAll(ctx context.Context, re *regexp.Regexp) error {
 	for _, el := range queue {
 		db.tree.Delete(el)
 	}
+	if len(queue) > 0 {
+		db.changed = true
+	}
 
 	utils.L(ctx).Normalf("deleted %d paths", len(queue))
 
 	return nil
+}
+
+func (db *DB) Changed() bool {
+	return db.changed
 }
 
 func (db *DB) Serialize(ctx context.Context) (io.ReadCloser, error) {
