@@ -6,6 +6,7 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -155,12 +156,20 @@ func (db *DB) List(ctx context.Context, prefix, delimiter string,
 }
 
 func (db *DB) Put(ctx context.Context, path string, content *manifest.Content) error {
+	if v, ok := db.tree.Get(path); ok && reflect.DeepEqual(v, content) {
+		return nil
+	}
+
 	db.tree.Set(path, content)
 	db.changed = true
 	return nil
 }
 
 func (db *DB) Delete(ctx context.Context, path string) error {
+	if _, ok := db.tree.Get(path); !ok {
+		return nil
+	}
+
 	utils.L(ctx).Normalf("deleted path %q", path)
 	db.tree.Delete(path)
 	db.changed = true
