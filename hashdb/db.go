@@ -68,7 +68,7 @@ func (d *DB) loadStream(ctx context.Context, stream io.Reader, path string) erro
 	_, err := io.ReadFull(stream, v)
 	if err != nil {
 		if err == io.EOF {
-			err = errs.Wrap(io.ErrUnexpectedEOF)
+			err = errs.New("unexpected EOF for hashset %q", path)
 		}
 		return err
 	}

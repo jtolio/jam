@@ -9,6 +9,8 @@ import (
 	"regexp"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
+
+	"github.com/jtolds/jam/utils"
 )
 
 var (
@@ -77,6 +79,11 @@ func Store(ctx context.Context, args []string) error {
 				return err
 			}
 			return sess.PutSymlink(ctx, targetPrefix+base, info.ModTime(), info.ModTime(), uint32(info.Mode()), target)
+		}
+
+		if !info.Mode().IsRegular() {
+			utils.L(ctx).Normalf("skipping %q, mode type not understood", targetPrefix+base)
+			return nil
 		}
 
 		fh, err := os.Open(path)
