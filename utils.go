@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"net/url"
@@ -37,13 +35,6 @@ var (
 		Exec:       HashCoalesce,
 	}
 
-	cmdNewEncKey = &ffcli.Command{
-		Name:       "new-enc-key",
-		ShortHelp:  "creates a new encryption key if you need one",
-		ShortUsage: fmt.Sprintf("%s [opts] utils new-enc-key", os.Args[0]),
-		Exec:       NewEncKey,
-	}
-
 	cmdUtils = &ffcli.Command{
 		Name:       "utils",
 		ShortHelp:  "miscellaneous utilities",
@@ -52,7 +43,6 @@ var (
 			cmdBackendSync,
 			cmdHashCheck,
 			cmdHashCoalesce,
-			cmdNewEncKey,
 		},
 		Exec: help,
 	}
@@ -164,21 +154,6 @@ func HashCheck(ctx context.Context, args []string) error {
 		return err
 	}
 
-	return nil
-}
-
-func NewEncKey(ctx context.Context, args []string) error {
-	if len(args) != 0 {
-		return flag.ErrHelp
-	}
-
-	var key [32]byte
-	_, err := rand.Read(key[:])
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("new key:", hex.EncodeToString(key[:]))
 	return nil
 }
 

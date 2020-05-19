@@ -8,6 +8,7 @@ USAGE
   jam [opts] <subcommand> [opts]
 
 SUBCOMMANDS
+  key        encryption key utilities
   ls         ls lists files in the given snapshot
   mount      mounts snap as read-only filesystem
   rename     rename allows a regexp-based search and replace against all paths in
@@ -36,7 +37,8 @@ FLAGS
                                           local disk, empty to disable
   -config /home/jt/.jam/jam.conf          path to config file
   -enc.block-size 16384                   encryption block size
-  -enc.key ...                            hex-encoded 32 byte encryption key
+  -enc.key ...                            hex-encoded 32 byte encryption key,
+                                          or locked key (see jam key new/lock)
   -log.level normal                       default log level. can be:
                                           debug, normal, urgent, or none
   -store file:///home/jt/.jam/storage     place to store data. currently

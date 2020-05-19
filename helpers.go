@@ -1,12 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"net/url"
+	"os"
 	"os/user"
 	"path/filepath"
 	"strconv"
@@ -27,7 +27,7 @@ var (
 	sysFlagBlockSize = sysFlags.Int("enc.block-size", 16*1024,
 		"encryption block size")
 	sysFlagEncKey = sysFlags.String("enc.key", "",
-		"hex-encoded 32 byte encryption key")
+		"hex-encoded 32 byte encryption key,\n\tor locked key (see jam key new/lock)")
 	sysFlagStore = sysFlags.String("store",
 		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "storage")}).String(),
 		("place to store data. currently\n\tsupports:\n" +
@@ -67,6 +67,8 @@ func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Bac
 	if *sysFlagEncKey == "" {
 		return nil, nil, nil, nil, fmt.Errorf("invalid configuration, no root encryption key specified")
 	}
+
+	input := bufio.NewReader(os.Stdin)
 
 	var stores []backends.Backend
 	defer func() {
@@ -118,12 +120,9 @@ func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Bac
 		store = wrappedStore
 	}
 
-	encKey, err := hex.DecodeString(*sysFlagEncKey)
+	encKey, err := parseKey(os.Stdout, input, *sysFlagEncKey)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("encryption key invalid hex: %w", err)
-	}
-	if len(encKey) != sha256.Size {
-		return nil, nil, nil, nil, fmt.Errorf("encryption key invalid length")
+		return nil, nil, nil, nil, err
 	}
 
 	store = enc.NewEncWrapper(
