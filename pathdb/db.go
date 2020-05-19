@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"context"
+	"crypto/sha256"
 	"io"
 	"io/ioutil"
 	"reflect"
@@ -85,6 +86,14 @@ func (db *DB) load(ctx context.Context, stream io.Reader) error {
 		}
 		if entries := page.GetEntries(); entries != nil {
 			for _, entry := range entries.Entries {
+				contentHash := entry.Content.Hash
+				if len(contentHash) > 0 && len(contentHash) != sha256.Size {
+					if len(contentHash) != sha256.Size*2 {
+						return errs.New("unknown hash length")
+					}
+					// TODO: sadlol, remove after everything is migrated
+					entry.Content.Hash = contentHash[len(contentHash)-sha256.Size:]
+				}
 				db.tree.Set(entry.Path, entry.Content)
 			}
 		}

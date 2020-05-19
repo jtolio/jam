@@ -12,10 +12,11 @@ type hashConfirmReader struct {
 	r        io.ReadCloser
 	h        hash.Hash
 	expected []byte
+	message  string
 }
 
-func newHashConfirmReader(r io.ReadCloser, h hash.Hash, expected []byte) *hashConfirmReader {
-	return &hashConfirmReader{r: r, h: h, expected: expected}
+func newHashConfirmReader(r io.ReadCloser, h hash.Hash, expected []byte, message string) *hashConfirmReader {
+	return &hashConfirmReader{r: r, h: h, expected: expected, message: message}
 }
 
 func (hcr *hashConfirmReader) Read(p []byte) (n int, err error) {
@@ -27,8 +28,9 @@ func (hcr *hashConfirmReader) Read(p []byte) (n int, err error) {
 		}
 	}
 	if err == io.EOF {
-		if !bytes.Equal(hcr.h.Sum(nil), hcr.expected) {
-			err = errs.New("file changed while reading")
+		actual := hcr.h.Sum(nil)
+		if !bytes.Equal(actual, hcr.expected) {
+			err = errs.New("%s", hcr.message)
 		}
 	}
 	return n, err

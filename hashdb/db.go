@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"context"
+	"crypto/sha256"
 	"io"
 
 	"github.com/jtolds/jam/backends"
@@ -93,7 +94,16 @@ func (d *DB) loadStream(ctx context.Context, stream io.Reader, path string) erro
 			return err
 		}
 		for _, entry := range set.Hashes {
-			hash := string(entry.Hash)
+			hashBytes := entry.Hash
+			if len(hashBytes) != sha256.Size {
+				if len(hashBytes) != sha256.Size*2 {
+					return errs.New("unknown hash length")
+				}
+				// TODO: sadlol, remove after everything is migrated
+				hashBytes = hashBytes[len(hashBytes)-sha256.Size:]
+			}
+
+			hash := string(hashBytes)
 			// TODO: log on overwrites?
 			d.existing[hash] = entry.Data
 			d.source[hash] = path

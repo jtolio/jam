@@ -77,7 +77,7 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 	}
 
 	var hashAlloc [sha256.Size]byte
-	hash := hasher.Sum(hashAlloc[:])
+	hash := hasher.Sum(hashAlloc[:0])
 
 	_, err = data.Seek(startOffset, io.SeekStart)
 	if err != nil {
@@ -112,7 +112,9 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 		s.pending[hashStr] = true
 
 		// Put closes data so we don't have to call Close
-		err = s.blobs.Put(ctx, newHashConfirmReader(data, sha256.New(), hash), size, &sortKey{col1: filepath.Dir(path), col2: size},
+		err = s.blobs.Put(ctx,
+			newHashConfirmReader(data, sha256.New(), hash, fmt.Sprintf("file changed while reading: %q", path)),
+			size, &sortKey{col1: filepath.Dir(path), col2: size},
 			func(ctx context.Context, stream *manifest.Stream, lastOfBlob bool) error {
 				utils.L(ctx).Normalf("stored data for %q", path)
 				err := s.hashes.Put(ctx, string(hash), stream)
