@@ -11,7 +11,31 @@ features:
   url sharing export
   set ulimit -n automatically
   support multi-command sessions
+    shell?
 backends:
   fix s3 to stream directly instead of staging
     in ram. either mitchellh/goamz or uploader type
 other TODOs in comments
+
+upload pipeline rewrite:
+  stage blob prior to uploading
+    fixes
+      hashing/file change problems
+      open filehandle problems
+      s3 concurrent uploading
+  breadth-first filepath.Walk (instead of sorting
+    internally)
+  store metadata in blobs also
+    should there be metadata just at the beginning of the blob
+    of what blocks are contained or at the beginning of each
+    block? easier to compress if it's all at the beginning,
+    complicates blob creation and offset calculation
+  within-blob block header:
+    block hash, path, offset within path, length
+    metadata?
+  hashes per block, block-level dedupe
+  compression per block?
+  versioned blob reference (for blob migration)
+
+post rewrite:
+  block-level caching?
