@@ -1,6 +1,7 @@
 fuller stack tests
 cache:
   more testing
+  path-aware caching (different strategy for manifests, hashes, blobs)
 SIS:
   maybe hashes should be in a blob header?
 make sure it works well to be mounted and to call store at the same time
