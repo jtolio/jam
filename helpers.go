@@ -41,7 +41,7 @@ var (
 		"max number of objects to stage\n\tbefore flushing (must fit file\n\tdescriptor limit)")
 	sysFlagCache = sysFlags.String("cache",
 		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "cache")}).String(),
-		"where to cache blobs that are\n\tfrequently read")
+		"where to cache things that are\n\tfrequently read")
 	sysFlagCacheEnabled = sysFlags.Bool("cache.enabled", true, "if false, disable caching")
 )
 
