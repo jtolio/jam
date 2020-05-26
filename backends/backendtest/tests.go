@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"io"
 	"io/ioutil"
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -73,18 +75,180 @@ func (t *suite) TestGetPutListDelete() {
 }
 
 func (t *suite) TestOffset() {
-	var data [1024]byte
+	var data [5 * 1024 * 1024]byte
 	_, err := rand.Read(data[:])
 	require.NoError(t.T, err)
+	t.T.Logf("putting 5MB file")
 	require.NoError(t.T, t.b.Put(ctx, "testfile", bytes.NewReader(data[:])))
-	for i := 0; i < len(data[:]); i++ {
-		rc, err := t.b.Get(ctx, "testfile", int64(i), -1)
-		require.NoError(t.T, err)
-		testdata, err := ioutil.ReadAll(io.LimitReader(rc, int64(len(data)-i)))
-		require.NoError(t.T, err)
-		require.NoError(t.T, rc.Close())
-		require.True(t.T, bytes.Equal(data[i:], testdata))
+	for i := 0; i < len(data[:]); i += 1024 * 1024 {
+		for j := -2; j < 3; j++ {
+			if i+j < 0 {
+				continue
+			}
+			for k := 7; k < 10; k++ {
+				t.T.Logf("offset %d, length %d", i+j, k)
+				rc, err := t.b.Get(ctx, "testfile", int64(i+j), int64(k))
+				require.NoError(t.T, err)
+				testdata, err := ioutil.ReadAll(io.LimitReader(rc, int64(k)))
+				require.NoError(t.T, err)
+				require.NoError(t.T, rc.Close())
+				require.True(t.T, bytes.Equal(data[i+j:i+j+k], testdata))
+			}
+		}
 	}
+}
+
+func (t *suite) TestNonExistent() {
+	_, err := t.b.Get(ctx, "non-existing-file", 0, -1)
+	require.True(t.T, errors.Is(err, backends.ErrNotExist))
+}
+
+type pausingReader struct {
+	pre, post []byte
+	err       error
+
+	readMtx sync.Mutex
+	waitMtx sync.Mutex
+}
+
+func newPausingReader(pre, post []byte, err error) *pausingReader {
+	pr := &pausingReader{
+		pre:  pre,
+		post: post,
+		err:  err,
+	}
+	pr.waitMtx.Lock()
+	return pr
+}
+
+func (pr *pausingReader) Read(p []byte) (n int, err error) {
+	pr.readMtx.Lock()
+	pr.readMtx.Unlock()
+	if len(pr.pre) > 0 {
+		n = copy(p, pr.pre)
+		pr.pre = pr.pre[n:]
+		return n, nil
+	}
+	if len(pr.post) > 0 {
+		pr.pre = pr.post
+		pr.post = nil
+		pr.waitMtx.Unlock()
+		pr.readMtx.Lock()
+		return pr.Read(p)
+	}
+	if pr.err != nil {
+		return 0, pr.err
+	}
+	return 0, io.EOF
+}
+
+func (pr *pausingReader) Unpause() {
+	pr.readMtx.Unlock()
+}
+
+func (pr *pausingReader) Wait() {
+	pr.waitMtx.Lock()
+	pr.waitMtx.Unlock()
+}
+
+func (t *suite) TestPartialPut_Success() {
+	require.True(t.T, len(listSlice(t.b, "")) == 0)
+	require.NoError(t.T, t.b.Put(ctx, "hello/there", bytes.NewReader([]byte("hello"))))
+
+	var data [2 * 1024 * 1024]byte
+	_, err := rand.Read(data[:])
+	require.NoError(t.T, err)
+
+	pr := newPausingReader(data[:1024*1024], data[1024*1024:], nil)
+
+	errch := make(chan error, 1)
+	go func() {
+		errch <- t.b.Put(ctx, "partial/put", pr)
+	}()
+
+	pr.Wait()
+
+	// make sure partial/put doesn't exist yet
+	rv := listSlice(t.b, "")
+	require.True(t.T, len(rv) == 1)
+	require.True(t.T, rv[0] == "hello/there")
+
+	_, err = t.b.Get(ctx, "partial/put", 0, -1)
+	require.True(t.T, errors.Is(err, backends.ErrNotExist))
+
+	pr.Unpause()
+
+	require.NoError(t.T, <-errch)
+
+	rv = listSlice(t.b, "")
+	require.True(t.T, len(rv) == 2)
+	require.True(t.T, rv[0] == "hello/there")
+	require.True(t.T, rv[1] == "partial/put")
+
+	rc, err := t.b.Get(ctx, "partial/put", 0, -1)
+	require.NoError(t.T, err)
+	require.NoError(t.T, rc.Close())
+}
+
+func (t *suite) TestPartialPut_Failure() {
+	require.True(t.T, len(listSlice(t.b, "")) == 0)
+	require.NoError(t.T, t.b.Put(ctx, "hello/there", bytes.NewReader([]byte("hello"))))
+
+	var data [2 * 1024 * 1024]byte
+	_, err := rand.Read(data[:])
+	require.NoError(t.T, err)
+
+	var myError = errors.New("test error")
+
+	pr := newPausingReader(data[:1024*1024], data[1024*1024:], myError)
+
+	errch := make(chan error, 1)
+	go func() {
+		errch <- t.b.Put(ctx, "partial/put", pr)
+	}()
+
+	pr.Wait()
+
+	// make sure partial/put doesn't exist yet
+	rv := listSlice(t.b, "")
+	require.True(t.T, len(rv) == 1)
+	require.True(t.T, rv[0] == "hello/there")
+
+	_, err = t.b.Get(ctx, "partial/put", 0, -1)
+	require.True(t.T, errors.Is(err, backends.ErrNotExist))
+
+	pr.Unpause()
+
+	require.True(t.T, errors.Is(<-errch, myError))
+
+	rv = listSlice(t.b, "")
+	require.True(t.T, len(rv) == 1)
+	require.True(t.T, rv[0] == "hello/there")
+
+	_, err = t.b.Get(ctx, "partial/put", 0, -1)
+	require.True(t.T, errors.Is(err, backends.ErrNotExist))
+}
+
+func (t *suite) TestPutOverwrite() {
+	data1 := "testing testing testing"
+	require.True(t.T, len(listSlice(t.b, "")) == 0)
+	for i := 0; i < 2; i++ {
+		require.NoError(t.T, t.b.Put(ctx, "hello/there", bytes.NewReader([]byte(data1))))
+		rv := listSlice(t.b, "")
+		require.True(t.T, len(rv) == 1)
+		require.True(t.T, rv[0] == "hello/there")
+		rc, err := t.b.Get(ctx, "hello/there", 0, -1)
+		require.NoError(t.T, err)
+		data, err := ioutil.ReadAll(io.LimitReader(rc, int64(len([]byte(data1)))))
+		require.NoError(t.T, err)
+		require.True(t.T, bytes.Equal(data, []byte(data1)))
+		require.NoError(t.T, rc.Close())
+	}
+}
+
+func (t *suite) TestDeleteMissing() {
+	err := t.b.Delete(ctx, "non-existing-file")
+	require.NoError(t.T, err)
 }
 
 func (t *suite) TestLength() {

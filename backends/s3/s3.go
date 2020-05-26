@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/zeebo/errs"
@@ -57,6 +58,9 @@ func (b *Backend) Get(ctx context.Context, path string, offset, length int64) (i
 		Range:  &rangeOffset,
 	})
 	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == s3.ErrCodeNoSuchKey {
+			return nil, Error.Wrap(backends.ErrNotExist)
+		}
 		return nil, Error.Wrap(err)
 	}
 	return out.Body, nil

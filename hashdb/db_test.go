@@ -2,9 +2,11 @@ package hashdb
 
 import (
 	"context"
+	"crypto/sha256"
 	"io/ioutil"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jtolds/jam/backends/fs"
@@ -13,6 +15,10 @@ import (
 )
 
 var ctx = context.Background()
+
+func extendHash(hash string) string {
+	return strings.Repeat("\x00", sha256.Size-len(hash)) + hash
+}
 
 func TestHashDB(t *testing.T) {
 	td, err := ioutil.TempDir("", "hashdbtest")
@@ -30,16 +36,17 @@ func TestHashDB(t *testing.T) {
 	db, err := Open(ctx, b)
 	require.NoError(t, err)
 
-	stream, err := db.Lookup(ctx, "a")
+	stream, err := db.Lookup(ctx, extendHash("a"))
 	require.NoError(t, err)
 	require.Nil(t, stream)
-	stream, err = db.Lookup(ctx, "b")
+	stream, err = db.Lookup(ctx, extendHash("b"))
 	require.NoError(t, err)
 	require.Nil(t, stream)
 
-	require.NoError(t, db.Put(ctx, "a", &manifest.Stream{Ranges: []*manifest.Range{
-		{Blob: "1", Offset: 0, Length: 1},
-	}}))
+	require.NoError(t, db.Put(ctx, extendHash("a"),
+		&manifest.Stream{Ranges: []*manifest.Range{
+			{Blob: "1", Offset: 0, Length: 1},
+		}}))
 	require.NoError(t, db.Flush(ctx))
 
 	require.NoError(t, db.Close())
@@ -47,20 +54,21 @@ func TestHashDB(t *testing.T) {
 	db, err = Open(ctx, b)
 	require.NoError(t, err)
 
-	stream, err = db.Lookup(ctx, "a")
+	stream, err = db.Lookup(ctx, extendHash("a"))
 	require.NoError(t, err)
 	require.Equal(t, len(stream.Ranges), 1)
 	require.Equal(t, stream.Ranges[0].Blob, "1")
 	require.Equal(t, stream.Ranges[0].Offset, int64(0))
 	require.Equal(t, stream.Ranges[0].Length, int64(1))
-	stream, err = db.Lookup(ctx, "b")
+	stream, err = db.Lookup(ctx, extendHash("b"))
 	require.NoError(t, err)
 	require.Nil(t, stream)
 
-	require.NoError(t, db.Put(ctx, "b", &manifest.Stream{Ranges: []*manifest.Range{
-		{Blob: "2", Offset: 4, Length: 2},
-		{Blob: "3", Offset: 1, Length: 3},
-	}}))
+	require.NoError(t, db.Put(ctx, extendHash("b"),
+		&manifest.Stream{Ranges: []*manifest.Range{
+			{Blob: "2", Offset: 4, Length: 2},
+			{Blob: "3", Offset: 1, Length: 3},
+		}}))
 	require.NoError(t, db.Flush(ctx))
 
 	require.NoError(t, db.Close())
@@ -68,13 +76,13 @@ func TestHashDB(t *testing.T) {
 	db, err = Open(ctx, b)
 	require.NoError(t, err)
 
-	stream, err = db.Lookup(ctx, "a")
+	stream, err = db.Lookup(ctx, extendHash("a"))
 	require.NoError(t, err)
 	require.Equal(t, len(stream.Ranges), 1)
 	require.Equal(t, stream.Ranges[0].Blob, "1")
 	require.Equal(t, stream.Ranges[0].Offset, int64(0))
 	require.Equal(t, stream.Ranges[0].Length, int64(1))
-	stream, err = db.Lookup(ctx, "b")
+	stream, err = db.Lookup(ctx, extendHash("b"))
 	require.NoError(t, err)
 	require.Equal(t, len(stream.Ranges), 2)
 	require.Equal(t, stream.Ranges[0].Blob, "2")

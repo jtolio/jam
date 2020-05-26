@@ -2,7 +2,12 @@ package backends
 
 import (
 	"context"
+	"errors"
 	"io"
+)
+
+var (
+	ErrNotExist = errors.New("error: object doesn't exist")
 )
 
 // Backend is a simplistic interface for storing data. The goal is to make as
@@ -14,12 +19,15 @@ import (
 //    and will not be changed. Different contents will never be stored at the
 //    same path.
 //  * Once deleted, a path with not be re-put.
-//  * Paths do not contain any private user data. As two examples, paths will
+//  * Paths do not contain any private user data. As three examples, paths will
 //    be of the form:
 //      meta/<timestamp>
-//      blob/<hex>/<hash>
+//			hash/<base32>/<hash>
+//      blob/<base32>/<hash>
 //		etc.
 //  * The prefix of one path will never be the full path of another object.
+//  * A path element (a part of a path separated by forward slashes)
+//		will always be alphanumeric.
 //
 // One other interesting note - backends are allowed to garbage-fill some
 // arbitrary length of data at the end of a Get. If a caller does a Put
@@ -38,15 +46,20 @@ type Backend interface {
 	// outside any of of these bounds is undefined.
 	// Implementors note: due to the above details, length can be ignored and is
 	// only provided for potential optimization.
+	// If the object doesn't exist, errors.Is(err, ErrNotExist) should return
+	// true.
 	Get(ctx context.Context, path string, offset, length int64) (io.ReadCloser, error)
 	// Put creates a new object at path consisting of the provided data.
-	// Put will not be called if the path exists, so behavior for existent paths
-	// is undefined. Put may be called with a path with forward-slash delimiters.
-	// Put is expected to *not* create a partial object if data returns an error
-	// other than io.EOF, and the object should not show up in listing
+	// Object content for a specific path will always be the same, so Puts for
+	// the same path can either replace the object at the path or silently
+	// return with no failure, leaving the existing data in place.
+	// Put may be called with a path with forward-slash delimiters.
+	// Put is expected *not* to create a partial object if data returns an error
+	// other than io.EOF, and the object should not show up in listing or be
+	// returned from Gets until the Put is complete.
 	Put(ctx context.Context, path string, data io.Reader) error
-	// Delete removes the object at path. Delete will not be called if the path
-	// doesn't exist, so behavior for nonexistent paths is undefined.
+	// Delete removes the object at path. If the object is already gone, Delete
+	// should return no error.
 	Delete(ctx context.Context, path string) error
 	// List should call 'cb' for all paths (recursively) starting with prefix
 	// until there are no more paths to return or cb returns an error.

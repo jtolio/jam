@@ -2,12 +2,16 @@ package fs
 
 import (
 	"context"
+	"errors"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/natefinch/atomic"
 	"github.com/zeebo/errs"
 
 	"github.com/jtolds/jam/backends"
@@ -34,6 +38,9 @@ func (fs *FS) Get(ctx context.Context, path string, offset, length int64) (rv io
 	localpath := filepath.Join(fs.root, path)
 	fh, err := os.Open(localpath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, errs.Wrap(backends.ErrNotExist)
+		}
 		return nil, errs.Wrap(err)
 	}
 	if offset > 0 {
@@ -67,24 +74,38 @@ func (fs *FS) Put(ctx context.Context, path string, data io.Reader) (err error) 
 			fs.Delete(ctx, path)
 		}
 	}()
+
 	localpath := filepath.Join(fs.root, path)
 	err = os.MkdirAll(filepath.Dir(localpath), 0700)
 	if err != nil {
 		return errs.Wrap(err)
 	}
 
-	fh, err := os.Create(localpath)
+	dir, file := filepath.Split(localpath)
+	fh, err := ioutil.TempFile(dir, "_"+file)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
+	defer fh.Close()
+
+	name := fh.Name()
+	defer func() {
+		if err != nil {
+			_ = os.Remove(name)
+		}
+	}()
 
 	_, err = io.Copy(fh, data)
 	if err != nil {
-		fh.Close()
 		return errs.Wrap(err)
 	}
 
-	return errs.Wrap(fh.Close())
+	err = fh.Close()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return errs.Wrap(atomic.ReplaceFile(name, localpath))
 }
 
 // Delete implements the Backend interface
@@ -127,10 +148,16 @@ func (fs *FS) List(ctx context.Context, prefix string,
 			if !info.Mode().IsRegular() {
 				return nil
 			}
+
+			if strings.HasPrefix(filepath.Base(path), "_") {
+				return nil
+			}
+
 			internal, err := filepath.Rel(fs.root, path)
 			if err != nil {
 				return errs.Wrap(err)
 			}
+
 			return cb(ctx, internal)
 		})
 }
