@@ -102,7 +102,7 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 	}
 
 	if exists || s.pending[hashStr] {
-		utils.L(ctx).Normalf("data for %q is duplicate", path)
+		utils.L(ctx).Debugf("data for %q is duplicate", path)
 		err = data.Close()
 		if err != nil {
 			return err
