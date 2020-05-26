@@ -100,6 +100,11 @@ func (fs *FS) Put(ctx context.Context, path string, data io.Reader) (err error) 
 		return errs.Wrap(err)
 	}
 
+	err = fh.Sync()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
 	err = fh.Close()
 	if err != nil {
 		return errs.Wrap(err)
