@@ -16,7 +16,7 @@ import (
 )
 
 const versionHeader = "jam-v0\n"
-const hashPrefix = "hash/"
+const HashPrefix = "hash/"
 
 type DB struct {
 	backend backends.Backend
@@ -44,7 +44,7 @@ func New(backend backends.Backend) *DB {
 
 func (d *DB) load(ctx context.Context) error {
 	var paths []string
-	err := d.backend.List(ctx, hashPrefix,
+	err := d.backend.List(ctx, HashPrefix,
 		func(ctx context.Context, path string) error {
 			r, err := d.backend.Get(ctx, path, 0, -1)
 			if err != nil {
@@ -162,7 +162,7 @@ func (d *DB) flush(ctx context.Context, hashes map[string]*manifest.Stream) (str
 		return "", err
 	}
 
-	path := hashPrefix + streams.IdPathComponent(blobs.IdGen())
+	path := HashPrefix + streams.IdPathComponent(blobs.IdGen())
 
 	err = d.backend.Put(ctx, path, io.MultiReader(
 		bytes.NewReader([]byte(versionHeader)),

@@ -1,11 +1,9 @@
 fuller stack tests
 cache:
   more testing
-  path-aware caching (different strategy for manifests, hashes, blobs)
+  consider bringing back LRU
 SIS:
   maybe hashes should be in a blob header?
-make sure it works well to be mounted and to call store at the same time
-  (cache state issues? don't update read cache on writes?)
 features:
   gc
   make rename safer
@@ -13,9 +11,6 @@ features:
   set ulimit -n automatically
   support multi-command sessions
     shell?
-backends:
-  fix s3 to stream directly instead of staging
-    in ram. either mitchellh/goamz or uploader type
 other TODOs in comments
 
 upload pipeline rewrite:
@@ -35,7 +30,7 @@ upload pipeline rewrite:
     block hash, path, offset within path, length
     metadata?
   hashes per block, block-level dedupe
-  compression per block?
+  compression per block? compression by file extension?
   versioned blob reference (for blob migration)
 
 post rewrite:

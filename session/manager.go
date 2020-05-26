@@ -2,9 +2,7 @@ package session
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,19 +16,22 @@ import (
 )
 
 const (
-	pathPrefix = "manifests/"
-	timeFormat = "2006/01/02/15-04-05.000000000"
+	ManifestPrefix = "manifests/"
+	timeFormat     = "2006/01/02/15-04-05.000000000"
 )
 
 func timestampToPath(timestamp time.Time) string {
-	return pathPrefix + timestamp.UTC().Format(timeFormat)
+	return ManifestPrefix + timestamp.UTC().Format(timeFormat)
 }
 
 func pathToTimestamp(path string) (time.Time, error) {
-	if !strings.HasPrefix(path, pathPrefix) {
-		return time.Time{}, errs.New("backend had unexpected behavior: path returned does not start with %q: %q", pathPrefix, path)
+	if !strings.HasPrefix(path, ManifestPrefix) {
+		return time.Time{}, errs.New(
+			"backend had unexpected behavior: path returned does not start with %q: %q",
+			ManifestPrefix, path)
 	}
-	ts, err := time.ParseInLocation(timeFormat, strings.TrimPrefix(path, pathPrefix), time.UTC)
+	ts, err := time.ParseInLocation(timeFormat,
+		strings.TrimPrefix(path, ManifestPrefix), time.UTC)
 	return ts, errs.Wrap(err)
 }
 
@@ -53,14 +54,15 @@ func (s *Manager) ListSnapshots(ctx context.Context,
 	// TODO: backend.List is not ordered. we could use the fact that manifests are stored
 	//		using timeFormat format and list by years and months in decreasing order to get
 	// 		an order
-	return errs.Wrap(s.backend.List(ctx, pathPrefix, func(ctx context.Context, path string) error {
-		timestamp, err := pathToTimestamp(path)
-		if err != nil {
-			utils.L(ctx).Urgentf("invalid manifest format: %q, skipping. error: %v", path, err)
-			return nil
-		}
-		return cb(ctx, timestamp)
-	}))
+	return errs.Wrap(s.backend.List(ctx, ManifestPrefix,
+		func(ctx context.Context, path string) error {
+			timestamp, err := pathToTimestamp(path)
+			if err != nil {
+				utils.L(ctx).Urgentf("invalid manifest format: %q, skipping. error: %v", path, err)
+				return nil
+			}
+			return cb(ctx, timestamp)
+		}))
 }
 
 func (s *Manager) latestTimestamp(ctx context.Context) (time.Time, error) {
@@ -91,10 +93,6 @@ func (s *Manager) LatestSnapshot(ctx context.Context) (*Snapshot, time.Time, err
 }
 
 func (s *Manager) openPathDB(ctx context.Context, timestamp time.Time) (*pathdb.DB, error) {
-	err := s.confirmSnapExists(ctx, timestamp)
-	if err != nil {
-		return nil, err
-	}
 	rc, err := s.backend.Get(ctx, timestampToPath(timestamp), 0, -1)
 	if err != nil {
 		return nil, err
@@ -150,31 +148,5 @@ func (s *Manager) DeleteSnapshot(ctx context.Context, timestamp time.Time) error
 	if !latest.After(timestamp) {
 		return fmt.Errorf("can't remove latest snapshot")
 	}
-	err = s.confirmSnapExists(ctx, timestamp)
-	if err != nil {
-		return err
-	}
 	return s.backend.Delete(ctx, timestampToPath(timestamp))
-}
-
-var escapeList = fmt.Errorf("escaping list")
-var noSnap = fmt.Errorf("snap does not exist")
-
-func (s *Manager) confirmSnapExists(ctx context.Context, timestamp time.Time) error {
-	found := false
-	timestampPath := timestampToPath(timestamp)
-	err := s.backend.List(ctx, filepath.Dir(timestampPath)+"/", func(ctx context.Context, path string) error {
-		if path == timestampPath {
-			found = true
-			return escapeList
-		}
-		return nil
-	})
-	if err != nil && !errors.Is(err, escapeList) {
-		return err
-	}
-	if !found {
-		return noSnap
-	}
-	return nil
 }

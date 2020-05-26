@@ -42,12 +42,7 @@ var (
 	sysFlagCache = sysFlags.String("cache",
 		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "cache")}).String(),
 		"where to cache blobs that are\n\tfrequently read")
-	sysFlagCacheSize    = sysFlags.Int("cache.size", 10, "how many blobs to cache")
-	sysFlagCacheMinHits = sysFlags.Int("cache.min-hits", 5,
-		"minimum number of hits to a blob\n\tbefore considering it for caching")
-	sysFlagCacheStateFile = sysFlags.String("cache.state",
-		filepath.Join(homeDir(), ".jam", "cache-state"),
-		"where to store cache state on\n\tlocal disk, empty to disable")
+	sysFlagCacheEnabled = sysFlags.Bool("cache.enabled", true, "if false, disable caching")
 )
 
 func homeDir() string {
@@ -101,7 +96,7 @@ func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Bac
 		}
 	}()
 
-	if *sysFlagCacheSize > 0 {
+	if *sysFlagCacheEnabled {
 		cacheURL, err := url.Parse(*sysFlagCache)
 		if err != nil {
 			return nil, nil, nil, nil, err
@@ -111,7 +106,7 @@ func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Bac
 			return nil, nil, nil, nil, err
 		}
 
-		wrappedStore, err := cache.New(ctx, store, cacheStore, *sysFlagCacheSize, *sysFlagCacheMinHits, *sysFlagCacheStateFile)
+		wrappedStore, err := cache.New(ctx, store, cacheStore)
 		if err != nil {
 			cacheStore.Close()
 			return nil, nil, nil, nil, err
