@@ -11,6 +11,7 @@ features:
   set ulimit -n automatically
   support multi-command sessions
     shell?
+  webserver?
 other TODOs in comments
 
 upload pipeline rewrite:
