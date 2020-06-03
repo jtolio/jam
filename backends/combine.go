@@ -48,7 +48,12 @@ func (c *combined) Put(ctx context.Context, path string, data io.Reader) error {
 	fns = append(fns, func() error {
 		return current.Put(ctx, path, data)
 	})
-	return parallel(fns...)
+	err := parallel(fns...)
+	if err != nil {
+		c.Delete(ctx, path)
+		return err
+	}
+	return nil
 }
 
 func (c *combined) Delete(ctx context.Context, path string) error {
