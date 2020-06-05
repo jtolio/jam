@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"sync"
 
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/manifest"
@@ -14,11 +15,16 @@ import (
 )
 
 var (
+	backendSyncFlags           = flag.NewFlagSet("", flag.ExitOnError)
+	backendSyncFlagParallelism = backendSyncFlags.Int("parallelism",
+		1, "number of parallel blobs to sync")
+
 	cmdBackendSync = &ffcli.Command{
 		Name:       "backend-sync",
 		ShortHelp:  "sync one backend to another",
 		ShortUsage: fmt.Sprintf("%s [opts] utils backend-sync <source-backend-url> <dest-backend-url>", os.Args[0]),
 		Exec:       BackendSync,
+		FlagSet:    backendSyncFlags,
 	}
 
 	cmdHashCheck = &ffcli.Command{
@@ -94,16 +100,48 @@ func BackendSync(ctx context.Context, args []string) error {
 		return err
 	}
 
+	queue := make(chan string, len(missingPaths))
 	for _, path := range missingPaths {
-		fmt.Printf("syncing %q\n", path)
-		r, err := sourceStore.Get(ctx, path, 0, -1)
-		if err != nil {
-			return err
-		}
+		queue <- path
+	}
+	close(queue)
 
-		err = destStore.Put(ctx, path, r)
-		r.Close()
+	workers := *backendSyncFlagParallelism
+	if workers < 1 {
+		workers = 1
+	}
+	errs := make(chan error, workers)
+	ctx, cancel := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	defer wg.Wait()
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer wg.Done()
+
+			for path := range queue {
+				fmt.Printf("syncing %q\n", path)
+				r, err := sourceStore.Get(ctx, path, 0, -1)
+				if err != nil {
+					errs <- err
+					return
+				}
+				err = destStore.Put(ctx, path, r)
+				r.Close()
+				if err != nil {
+					errs <- err
+					return
+				}
+			}
+
+			errs <- nil
+		}()
+	}
+
+	for i := 0; i < workers; i++ {
+		err := <-errs
 		if err != nil {
+			cancel()
 			return err
 		}
 	}
