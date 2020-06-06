@@ -4,6 +4,9 @@ cache:
   consider bringing back LRU
 SIS:
   maybe hashes should be in a blob header?
+  hashsets should be incremental and full and hash
+    coalescing should create a new full hashset and
+    stop deleting old hashsets by default
 features:
   gc
   make rename safer
