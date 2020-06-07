@@ -15,6 +15,7 @@ features:
   support multi-command sessions
     shell?
   webserver?
+  ssh/scp storage backend for lan caches
 other TODOs in comments
 
 upload pipeline rewrite:
