@@ -208,8 +208,13 @@ type Session struct {
 	fs     *fuseFS
 }
 
-func Mount(ctx context.Context, snap *session.Snapshot, target string) (*Session, error) {
-	conn, err := fuse.Mount(target, fuse.FSName("jam"), fuse.ReadOnly())
+func Mount(ctx context.Context, snap *session.Snapshot, target string, maxReadahead int) (
+	*Session, error) {
+	conn, err := fuse.Mount(target,
+		fuse.FSName("jam"),
+		fuse.ReadOnly(),
+		fuse.MaxReadahead(uint32(maxReadahead)),
+	)
 	if err != nil {
 		return nil, err
 	}

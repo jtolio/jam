@@ -21,8 +21,9 @@ var (
 	listFlagSnapshot  = listFlags.String("snap", "latest", "which snapshot to use")
 	listFlagRecursive = listFlags.Bool("r", false, "list recursively")
 
-	mountFlags        = flag.NewFlagSet("", flag.ExitOnError)
-	mountFlagSnapshot = mountFlags.String("snap", "latest", "which snapshot to use")
+	mountFlags         = flag.NewFlagSet("", flag.ExitOnError)
+	mountFlagSnapshot  = mountFlags.String("snap", "latest", "which snapshot to use")
+	mountFlagReadahead = mountFlags.Int("readahead", 128*1024, "FUSE max readahead")
 
 	cmdMount = &ffcli.Command{
 		Name:       "mount",
@@ -61,7 +62,7 @@ func Mount(ctx context.Context, args []string) error {
 	}
 	defer snap.Close()
 
-	sess, err := mount.Mount(ctx, snap, mountpoint)
+	sess, err := mount.Mount(ctx, snap, mountpoint, *mountFlagReadahead)
 	if err != nil {
 		return err
 	}
