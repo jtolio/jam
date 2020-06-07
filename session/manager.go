@@ -2,7 +2,9 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -49,35 +51,55 @@ func NewManager(backend backends.Backend, blobStore *blobs.Store, hashes *hashdb
 	}
 }
 
+// ListSnapshots returns snapshots newest to oldest
 func (s *Manager) ListSnapshots(ctx context.Context,
 	cb func(ctx context.Context, timestamp time.Time) error) error {
 	// TODO: backend.List is not ordered. we could use the fact that manifests are stored
 	//		using timeFormat format and list by years and months in decreasing order to get
 	// 		an order
-	return errs.Wrap(s.backend.List(ctx, ManifestPrefix,
+	var timestamps []time.Time
+	err := s.backend.List(ctx, ManifestPrefix,
 		func(ctx context.Context, path string) error {
 			timestamp, err := pathToTimestamp(path)
 			if err != nil {
 				utils.L(ctx).Urgentf("invalid manifest format: %q, skipping. error: %v", path, err)
 				return nil
 			}
-			return cb(ctx, timestamp)
-		}))
+			timestamps = append(timestamps, timestamp)
+			return nil
+		})
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	sort.Slice(timestamps, func(i, j int) bool {
+		return timestamps[i].After(timestamps[j])
+	})
+	for _, timestamp := range timestamps {
+		err = cb(ctx, timestamp)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Manager) latestTimestamp(ctx context.Context) (time.Time, error) {
 	var latest time.Time
-	// TODO: there is probably a better way here
+	exitEarly := errors.New("list-snapshot-early-exit")
 	err := s.ListSnapshots(ctx, func(ctx context.Context, timestamp time.Time) error {
-		if latest.IsZero() || timestamp.After(latest) {
-			latest = timestamp
-		}
-		return nil
+		latest = timestamp
+		return exitEarly
 	})
 	if err != nil {
+		if errors.Is(err, exitEarly) {
+			return latest, nil
+		}
 		return latest, err
 	}
-	return latest, nil
+	if latest.IsZero() {
+		return latest, nil
+	}
+	return latest, errs.New("unexpected codepath!")
 }
 
 func (s *Manager) LatestSnapshot(ctx context.Context) (*Snapshot, time.Time, error) {
