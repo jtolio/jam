@@ -34,6 +34,7 @@ var (
 			"\t* file://<path>,\n" +
 			"\t* storj://<access>/<bucket>/<pre>\n" +
 			"\t* s3://<bucket>/<prefix>\n" +
+			"\t* sftp://<user>@<host>/<prefix>\n" +
 			"\tand can be comma-separated to\n\twrite to many at once"))
 	sysFlagBlobSize = sysFlags.Int64("blobs.size", 60*1024*1024,
 		"target blob size")

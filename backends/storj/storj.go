@@ -50,8 +50,6 @@ func New(ctx context.Context, u *url.URL) (backends.Backend, error) {
 	}, nil
 }
 
-var _ backends.Backend = (*Backend)(nil)
-
 func (b *Backend) Get(ctx context.Context, path string, offset, length int64) (io.ReadCloser, error) {
 	path = b.prefix + path
 	d, err := b.p.DownloadObject(ctx, b.bucket, path, &uplink.DownloadOptions{Offset: offset, Length: length})

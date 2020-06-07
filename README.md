@@ -42,6 +42,7 @@ FLAGS
                                        * file://<path>,
                                        * storj://<access>/<bucket>/<pre>
                                        * s3://<bucket>/<prefix>
+                                       * sftp://<user>@<host>/<prefix>
                                        and can be comma-separated to
                                        write to many at once
 ```

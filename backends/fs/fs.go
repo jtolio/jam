@@ -2,7 +2,6 @@ package fs
 
 import (
 	"context"
-	"errors"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -26,8 +25,6 @@ type FS struct {
 	root string
 }
 
-var _ backends.Backend = (*FS)(nil)
-
 // New returns an FS mounted at the provided root path.
 func New(ctx context.Context, u *url.URL) (backends.Backend, error) {
 	return &FS{root: u.Path}, nil
@@ -38,7 +35,7 @@ func (fs *FS) Get(ctx context.Context, path string, offset, length int64) (rv io
 	localpath := filepath.Join(fs.root, path)
 	fh, err := os.Open(localpath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if os.IsNotExist(err) {
 			return nil, errs.Wrap(backends.ErrNotExist)
 		}
 		return nil, errs.Wrap(err)
@@ -116,7 +113,7 @@ func (fs *FS) Put(ctx context.Context, path string, data io.Reader) (err error) 
 // Delete implements the Backend interface
 func (fs *FS) Delete(ctx context.Context, path string) error {
 	localpath := filepath.Join(fs.root, path)
-	if _, err := os.Stat(localpath); os.IsNotExist(err) {
+	if _, err := os.Lstat(localpath); os.IsNotExist(err) {
 		return nil
 	}
 	err := os.Remove(localpath)
@@ -142,7 +139,7 @@ func (fs *FS) Delete(ctx context.Context, path string) error {
 func (fs *FS) List(ctx context.Context, prefix string,
 	cb func(ctx context.Context, path string) error) error {
 	localpath := filepath.Join(fs.root, prefix)
-	if s, err := os.Stat(localpath); os.IsNotExist(err) || !s.IsDir() {
+	if s, err := os.Lstat(localpath); os.IsNotExist(err) || !s.IsDir() {
 		return nil
 	}
 	return filepath.Walk(filepath.Join(fs.root, prefix),

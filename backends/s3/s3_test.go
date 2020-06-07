@@ -51,6 +51,6 @@ func TestS3BackendWithPrefix(t *testing.T) {
 			b.Close()
 			return nil, nil, err
 		}
-		return b, nil, err
+		return b, nil, nil
 	})
 }

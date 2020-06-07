@@ -44,8 +44,6 @@ func New(ctx context.Context, url *url.URL) (backends.Backend, error) {
 	}, nil
 }
 
-var _ backends.Backend = (*Backend)(nil)
-
 func (b *Backend) Get(ctx context.Context, path string, offset, length int64) (io.ReadCloser, error) {
 	rangeOffset := fmt.Sprintf("bytes=%d-", offset)
 	if length > 0 {

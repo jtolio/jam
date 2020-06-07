@@ -15,6 +15,7 @@ import (
 
 	_ "github.com/jtolds/jam/backends/fs"
 	_ "github.com/jtolds/jam/backends/s3"
+	_ "github.com/jtolds/jam/backends/sftp"
 	_ "github.com/jtolds/jam/backends/storj"
 )
 

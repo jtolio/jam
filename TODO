@@ -15,7 +15,11 @@ features:
   support multi-command sessions
     shell?
   webserver?
-  ssh/scp storage backend for lan caches
+sftp:
+  figure out better read performance
+    evidently WriteTo is better than Read
+  get fsync support upstreamed into github/pkg/sftp
+    sftp supports it, fsync@openssh.com extension
 other TODOs in comments
 
 upload pipeline rewrite:
