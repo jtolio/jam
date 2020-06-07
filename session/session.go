@@ -154,7 +154,7 @@ func (s *Session) PutSymlink(ctx context.Context, path string, creation, modifie
 		},
 	}
 
-	utils.L(ctx).Normalf("stored symlink %q", path)
+	utils.L(ctx).Debugf("stored symlink %q", path)
 
 	return s.paths.Put(ctx, path, content)
 }
