@@ -15,11 +15,17 @@ features:
   support multi-command sessions
     shell?
   webserver?
+  more checks than hash-check
+    make sure all hashes exist for paths
+    make sure all blobs have decryptable data for the
+      last known bytes, across all backends
 sftp:
   figure out better read performance
     evidently WriteTo is better than Read
   get fsync support upstreamed into github/pkg/sftp
     sftp supports it, fsync@openssh.com extension
+fuse:
+  pick deterministic inode numbers?
 other TODOs in comments
 
 upload pipeline rewrite:
