@@ -1,4 +1,4 @@
-package blobs
+package utils
 
 import (
 	"crypto/rand"
@@ -10,7 +10,7 @@ var (
 	encoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567")
 )
 
-func IdGen() string {
+func IdBytesGen() []byte {
 	// each digit in base32 is 5 bits, so we should use a multiple of
 	// 5 bits to avoid wasted per-character entropy
 	var buf [35]byte
@@ -18,5 +18,13 @@ func IdGen() string {
 	if err != nil {
 		panic(err)
 	}
-	return encoding.EncodeToString(buf[:])
+	return buf[:]
+}
+
+func IdGen() string {
+	return PathSafeIdEncode(IdBytesGen())
+}
+
+func PathSafeIdEncode(data []byte) string {
+	return encoding.EncodeToString(data)
 }

@@ -19,7 +19,7 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/blobs"
+	"github.com/jtolds/jam/utils"
 )
 
 func init() {
@@ -141,7 +141,7 @@ func (fs *SFTP) Put(ctx context.Context, path string, data io.Reader) (err error
 		return errs.Wrap(err)
 	}
 
-	tmpfile := filepath.Join(filepath.Dir(remotepath), "_"+blobs.IdGen())
+	tmpfile := filepath.Join(filepath.Dir(remotepath), "_"+utils.IdGen())
 	fh, err := fs.client.OpenFile(tmpfile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
 		return errs.Wrap(err)

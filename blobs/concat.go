@@ -7,6 +7,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"github.com/jtolds/jam/manifest"
+	"github.com/jtolds/jam/utils"
 )
 
 type concat struct {
@@ -17,7 +18,7 @@ type concat struct {
 	stagedRange *manifest.Range
 
 	offset int64
-	blob   string
+	blob   []byte
 }
 
 func newConcat(entries ...*entry) *concat {
@@ -75,13 +76,13 @@ func (c *concat) capRange() {
 
 func (c *concat) resetRange() {
 	c.stagedRange = &manifest.Range{
-		Blob:   c.blob,
-		Offset: c.offset,
+		BlobBytes: c.blob,
+		Offset:    c.offset,
 	}
 }
 
 func (c *concat) EOF() bool    { return c.processing == nil }
-func (c *concat) Blob() string { return c.blob }
+func (c *concat) Blob() string { return utils.PathSafeIdEncode(c.blob) }
 
 func (c *concat) cut() {
 	if c.processing != nil {
@@ -89,7 +90,7 @@ func (c *concat) cut() {
 		defer c.resetRange()
 	}
 	c.offset = 0
-	c.blob = IdGen()
+	c.blob = utils.IdBytesGen()
 }
 
 func (c *concat) Cut(ctx context.Context) error {

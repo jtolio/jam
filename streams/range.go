@@ -21,14 +21,15 @@ func BlobPath(id string) string {
 	return BlobPrefix + IdPathComponent(id)
 }
 
-func OpenRange(ctx context.Context, backend backends.Backend, r *manifest.Range, offset int64) (io.ReadCloser, error) {
+func OpenRange(ctx context.Context, backend backends.Backend, r *manifest.Range,
+	offset int64) (io.ReadCloser, error) {
 	if offset > r.Length {
 		return nil, fmt.Errorf("invalid offset")
 	}
 	if offset == r.Length {
 		return ioutil.NopCloser(bytes.NewReader(nil)), nil
 	}
-	rc, err := backend.Get(ctx, BlobPath(r.Blob), r.Offset+offset, r.Length-offset)
+	rc, err := backend.Get(ctx, BlobPath(r.Blob()), r.Offset+offset, r.Length-offset)
 	if err != nil {
 		return nil, err
 	}

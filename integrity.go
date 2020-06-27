@@ -57,14 +57,14 @@ func Integrity(ctx context.Context, args []string) error {
 	}
 	err = hashes.Iterate(ctx, func(ctx context.Context, hash, hashset string, stream *manifest.Stream) error {
 		for _, r := range stream.Ranges {
-			blobPath := streams.BlobPath(r.Blob)
+			blobPath := streams.BlobPath(r.Blob())
 			if lastRange, exists := blobLastRange[blobPath]; r.Length > 0 && (!exists || lastRange.Offset < r.Offset) {
 				blobLastRange[blobPath] = r
 			}
 			if !blobs[blobPath] {
-				if !missing[r.Blob] {
-					missing[r.Blob] = true
-					fmt.Printf("missing blob: %s\n", r.Blob)
+				if !missing[r.Blob()] {
+					missing[r.Blob()] = true
+					fmt.Printf("missing blob: %s\n", r.Blob())
 				}
 				if !bad[hashset] {
 					bad[hashset] = true

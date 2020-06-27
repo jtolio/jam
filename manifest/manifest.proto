@@ -5,9 +5,11 @@ package manifest;
 import "google/protobuf/timestamp.proto";
 
 message Range {
-  string blob = 1;
   int64 offset = 2;
   int64 length = 3;
+  bytes blob_bytes = 4;
+
+  string deprecated_blob_string = 1;
 }
 
 message Stream {
