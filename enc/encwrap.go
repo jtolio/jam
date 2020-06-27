@@ -11,7 +11,7 @@ import (
 
 // EncWrapper wraps a Backend with encryption.
 type EncWrapper struct {
-	enc     Codec
+	enc     *CodecMap
 	keyGen  KeyGenerator
 	backend backends.Backend
 }
@@ -19,7 +19,7 @@ type EncWrapper struct {
 var _ backends.Backend = (*EncWrapper)(nil)
 
 // NewEncWrapper returns a new Backend with the provided encryption
-func NewEncWrapper(encryption Codec, keyGen KeyGenerator, backend backends.Backend) *EncWrapper {
+func NewEncWrapper(encryption *CodecMap, keyGen KeyGenerator, backend backends.Backend) *EncWrapper {
 	return &EncWrapper{
 		enc:     encryption,
 		keyGen:  keyGen,
@@ -32,8 +32,9 @@ func (e *EncWrapper) Get(ctx context.Context, path string, offset, length int64)
 	// See implementation note in List
 
 	// calculate how much back we have to get to get the block that contains the requested offset
-	decodedBlockSize := int64(e.enc.DecodedBlockSize())
-	encodedBlockSize := int64(e.enc.EncodedBlockSize())
+	codec := e.enc.CodecForPath(path)
+	decodedBlockSize := int64(codec.DecodedBlockSize())
+	encodedBlockSize := int64(codec.EncodedBlockSize())
 	firstBlock := offset / decodedBlockSize
 	encodedLength := int64(-1)
 	encodedOffset := firstBlock * encodedBlockSize
@@ -52,7 +53,7 @@ func (e *EncWrapper) Get(ctx context.Context, path string, offset, length int64)
 	// in this scenario except it is guaranteed that for backends, a given path will always
 	// have the exact same data.
 	key := e.keyGen.KeyForPath(path)
-	r := DecodeReader(fh, e.enc, &key, firstBlock)
+	r := DecodeReader(fh, codec, &key, firstBlock)
 
 	// we had to rewind to get the enclosing block beginning. now fast forward to skip the
 	// initial block bytes.
@@ -81,10 +82,11 @@ func (e *EncWrapper) Put(ctx context.Context, path string, data io.Reader) error
 	// See implementation note in List
 	// See implementation note in Get
 	key := e.keyGen.KeyForPath(path)
+	codec := e.enc.CodecForPath(path)
 	return e.backend.Put(ctx, path,
 		EncodeReader(
-			&padding{r: data, bs: e.enc.DecodedBlockSize()},
-			e.enc, &key, 0))
+			&padding{r: data, bs: codec.DecodedBlockSize()},
+			codec, &key, 0))
 }
 
 // Delete implements the Backend interface

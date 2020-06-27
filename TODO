@@ -22,9 +22,10 @@ sftp:
     sftp supports it, fsync@openssh.com extension
 fuse:
   pick deterministic inode numbers?
-encryption block size is enormous for small hashsets
-  figure out how to choose encryption block size by
-    path prefix
+support changing encryption settings for some data
+  blocksize
+  algorithm
+  root key
 integrity check:
   check all manifests
 other TODOs in comments

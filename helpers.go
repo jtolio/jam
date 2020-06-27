@@ -24,8 +24,10 @@ import (
 )
 
 var (
-	sysFlagBlockSize = sysFlags.Int("enc.block-size", 16*1024,
-		"encryption block size")
+	sysFlagBlockSizeDefault = sysFlags.Int("enc.block-size", 16*1024,
+		"default encryption block size")
+	sysFlagBlockSizeSmall = sysFlags.Int("enc.block-size-small", 1*1024,
+		"encryption block size for small objects")
 	sysFlagEncKey = sysFlags.String("enc.key", "",
 		"hex-encoded 32 byte encryption key,\n\tor locked key (see jam key new/lock)")
 	sysFlagStore = sysFlags.String("store",
@@ -128,11 +130,10 @@ func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Bac
 		return nil, nil, nil, nil, err
 	}
 
-	store = enc.NewEncWrapper(
-		enc.NewSecretboxCodec(*sysFlagBlockSize),
-		enc.NewHMACKeyGenerator(encKey),
-		store,
-	)
+	codecMap := enc.NewCodecMap(enc.NewSecretboxCodec(*sysFlagBlockSizeDefault))
+	codecMap.Register(hashdb.HashSuffix,
+		enc.NewSecretboxCodec(*sysFlagBlockSizeSmall))
+	store = enc.NewEncWrapper(codecMap, enc.NewHMACKeyGenerator(encKey), store)
 	hashes, err = hashdb.Open(ctx, store)
 	if err != nil {
 		return nil, nil, nil, nil, err
