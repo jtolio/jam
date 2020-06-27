@@ -86,6 +86,26 @@ func Integrity(ctx context.Context, args []string) error {
 		}
 	}
 
+	// check to make sure a hash for every listed path exists
+	snap, _, err := getReadSnapshot(ctx, mgr, *integrityFlagSnapshot)
+	if err != nil {
+		return err
+	}
+	defer snap.Close()
+	err = snap.List(ctx, "", "", func(ctx context.Context, entry *session.ListEntry) error {
+		if entry.Meta.Type != manifest.Metadata_FILE {
+			return nil
+		}
+		stream, err := entry.Stream(ctx)
+		if err != nil {
+			return err
+		}
+		return stream.Close()
+	})
+	if err != nil {
+		return err
+	}
+
 	// check to make sure none of the blobs are truncated
 	if !*integrityFlagSkipBlobEnd {
 		for path, r := range blobLastRange {
@@ -107,20 +127,5 @@ func Integrity(ctx context.Context, args []string) error {
 		}
 	}
 
-	// check to make sure a hash for every listed path exists
-	snap, _, err := getReadSnapshot(ctx, mgr, *integrityFlagSnapshot)
-	if err != nil {
-		return err
-	}
-	defer snap.Close()
-	return snap.List(ctx, "", "", func(ctx context.Context, entry *session.ListEntry) error {
-		if entry.Meta.Type != manifest.Metadata_FILE {
-			return nil
-		}
-		stream, err := entry.Stream(ctx)
-		if err != nil {
-			return err
-		}
-		return stream.Close()
-	})
+	return nil
 }
