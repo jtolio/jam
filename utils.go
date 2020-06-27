@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 
@@ -12,6 +13,13 @@ import (
 )
 
 var (
+	cmdBackendCat = &ffcli.Command{
+		Name:       "backend-cat",
+		ShortHelp:  "cat an object in the backend",
+		ShortUsage: fmt.Sprintf("%s [opts] utils backend-cat <path-inside-backend>", os.Args[0]),
+		Exec:       BackendCat,
+	}
+
 	cmdBackendSync = &ffcli.Command{
 		Name:       "backend-sync",
 		ShortHelp:  "sync one backend to another",
@@ -38,6 +46,7 @@ var (
 		ShortHelp:  "miscellaneous utilities",
 		ShortUsage: fmt.Sprintf("%s [opts] utils <subcommand> [opts]", os.Args[0]),
 		Subcommands: []*ffcli.Command{
+			cmdBackendCat,
 			cmdBackendSync,
 			cmdHashCoalesce,
 			cmdHashSplit,
@@ -107,6 +116,26 @@ func BackendSync(ctx context.Context, args []string) error {
 	}
 
 	return nil
+}
+
+func BackendCat(ctx context.Context, args []string) error {
+	if len(args) != 1 {
+		return flag.ErrHelp
+	}
+
+	_, backend, _, mgrClose, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+	defer mgrClose()
+
+	rc, err := backend.Get(ctx, args[0], 0, -1)
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+	_, err = io.Copy(os.Stdout, rc)
+	return err
 }
 
 func HashCoalesce(ctx context.Context, args []string) error {
