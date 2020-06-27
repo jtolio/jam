@@ -26,6 +26,13 @@ var (
 		Exec:       HashCoalesce,
 	}
 
+	cmdHashSplit = &ffcli.Command{
+		Name:       "hash-split",
+		ShortHelp:  "split hash files to one per blob (default behavior on upload)",
+		ShortUsage: fmt.Sprintf("%s [opts] utils hash-split", os.Args[0]),
+		Exec:       HashSplit,
+	}
+
 	cmdUtils = &ffcli.Command{
 		Name:       "utils",
 		ShortHelp:  "miscellaneous utilities",
@@ -33,6 +40,7 @@ var (
 		Subcommands: []*ffcli.Command{
 			cmdBackendSync,
 			cmdHashCoalesce,
+			cmdHashSplit,
 		},
 		Exec: help,
 	}
@@ -113,4 +121,18 @@ func HashCoalesce(ctx context.Context, args []string) error {
 	defer mgrClose()
 
 	return hashes.Coalesce(ctx)
+}
+
+func HashSplit(ctx context.Context, args []string) error {
+	if len(args) != 0 {
+		return flag.ErrHelp
+	}
+
+	_, _, hashes, mgrClose, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+	defer mgrClose()
+
+	return hashes.Split(ctx)
 }

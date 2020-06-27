@@ -206,33 +206,3 @@ func (d *DB) Iterate(ctx context.Context, cb func(ctx context.Context, hash, has
 	}
 	return nil
 }
-
-func (d *DB) Coalesce(ctx context.Context) error {
-	// TODO: seems silly to write out a small hashset only to delete it
-	err := d.Flush(ctx)
-	if err != nil {
-		return err
-	}
-	newpath, err := d.flush(ctx, d.existing)
-	if err != nil {
-		return err
-	}
-	utils.L(ctx).Normalf("wrote new hashset with %d hashes. deleting old hashsets...", len(d.existing))
-	deleted := map[string]bool{}
-	for _, oldpath := range d.paths {
-		if deleted[oldpath] {
-			continue
-		}
-		err = d.backend.Delete(ctx, oldpath)
-		if err != nil {
-			return err
-		}
-		deleted[oldpath] = true
-	}
-	d.paths = []string{newpath}
-	for hash := range d.source {
-		d.source[hash] = newpath
-	}
-	utils.L(ctx).Normalf("deleted %d old hashsets.", len(deleted))
-	return nil
-}
