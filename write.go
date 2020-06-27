@@ -16,13 +16,13 @@ import (
 var (
 	cmdStore = &ffcli.Command{
 		Name:       "store",
-		ShortHelp:  "store adds the given source directory to a new snapshot, forked from\n\tthe latest snapshot.",
+		ShortHelp:  "store adds the given source directory to a new snapshot, forked\n\tfrom the latest snapshot.",
 		ShortUsage: fmt.Sprintf("%s [opts] store <source-dir> [<target-prefix>]", os.Args[0]),
 		Exec:       Store,
 	}
 	cmdRename = &ffcli.Command{
 		Name: "rename",
-		ShortHelp: ("rename allows a regexp-based search and replace against all paths in\n\tthe system, " +
+		ShortHelp: ("rename allows a regexp-based search and replace against all paths\n\tin the system, " +
 			"forked from the latest snapshot. See\n\thttps://golang.org/pkg/regexp/#Regexp.ReplaceAll " +
 			"for semantics."),
 		ShortUsage: fmt.Sprintf("%s [opts] rename <regexp> <replacement>", os.Args[0]),

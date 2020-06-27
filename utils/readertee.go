@@ -8,7 +8,7 @@ import (
 // ReaderTee turns a single Reader into two Readers that proceed in
 // lockstep together with the same data.
 func ReaderTee(r io.Reader) (io.Reader, io.Reader) {
-	wrapper := readerTee{
+	wrapper := &readerTee{
 		r:  r,
 		cv: sync.NewCond(new(sync.Mutex)),
 	}

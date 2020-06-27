@@ -28,15 +28,6 @@ var (
 //  * The prefix of one path will never be the full path of another object.
 //  * A path element (a part of a path separated by forward slashes)
 //		will always be alphanumeric.
-//
-// One other interesting note - backends are allowed to garbage-fill some
-// arbitrary length of data at the end of a Get. If a caller does a Put
-// for 10 bytes, a Get with a negative length is allowed to return a reader
-// for more than 10 bytes, where the bytes after the 10th are arbitrary.
-// If a Get with offset 0, length 5 happens on the same 10 byte object,
-// the returned Get can return more than 5 bytes (though they won't be
-// read). This does mean that readers returned from Gets will most certainly
-// be closed before they are exhausted.
 type Backend interface {
 	// Get takes a path and an offset and returns an io.ReadCloser consisting of
 	// data from the offset to the end of the object. The offset will be >= 0 and

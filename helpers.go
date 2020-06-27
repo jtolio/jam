@@ -36,6 +36,9 @@ var (
 			"\t* s3://<bucket>/<prefix>\n" +
 			"\t* sftp://<user>@<host>/<prefix>\n" +
 			"\tand can be comma-separated to\n\twrite to many at once"))
+	sysFlagStoreReadCompare = sysFlags.Bool("store.read-compare",
+		false,
+		"if true, compare reads across\n\tall backends. useful for integrity\n\tchecking")
 	sysFlagBlobSize = sysFlags.Int64("blobs.size", 60*1024*1024,
 		"target blob size")
 	sysFlagMaxUnflushed = sysFlags.Int("blobs.max-unflushed", 1000,
@@ -88,7 +91,11 @@ func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Bac
 
 	store := stores[0]
 	if len(stores) > 1 {
-		store = backends.Combine(stores[0], stores[1:]...)
+		if *sysFlagStoreReadCompare {
+			store = backends.CombineAndCompare(stores[0], stores[1:]...)
+		} else {
+			store = backends.Combine(stores[0], stores[1:]...)
+		}
 	}
 	stores = nil
 	defer func() {
