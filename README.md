@@ -34,7 +34,8 @@ FLAGS
                                        frequently read
   -cache.enabled true                  if false, disable caching
   -config /home/jt/.jam/jam.conf       path to config file
-  -enc.block-size 16384                encryption block size
+  -enc.block-size 16384                default encryption block size
+  -enc.block-size-small 1024           encryption block size for small objects
   -enc.key ...                         hex-encoded 32 byte encryption key,
                                        or locked key (see jam key new/lock)
   -log.level normal                    default log level. can be:
