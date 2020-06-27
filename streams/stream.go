@@ -21,7 +21,7 @@ type Stream struct {
 var _ io.ReadCloser = (*Stream)(nil)
 var _ io.Seeker = (*Stream)(nil)
 
-// Open returns a Stream ready for reading. Close only needs to be called if
+// Open returns a Stream ready for reading.
 func Open(ctx context.Context, backend backends.Backend, stream *manifest.Stream) (*Stream, error) {
 	var length int64
 	for _, r := range stream.Ranges {
@@ -66,7 +66,7 @@ func (f *Stream) open() error {
 	offset := f.currentOffset
 	for _, r := range f.stream.Ranges {
 		if offset-r.Length < 0 {
-			currentRange, err := openRange(f.ctx, f.backend, r, offset)
+			currentRange, err := OpenRange(f.ctx, f.backend, r, offset)
 			if err != nil {
 				return err
 			}

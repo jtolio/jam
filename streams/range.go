@@ -21,7 +21,7 @@ func BlobPath(id string) string {
 	return BlobPrefix + IdPathComponent(id)
 }
 
-func openRange(ctx context.Context, backend backends.Backend, r *manifest.Range, offset int64) (io.ReadCloser, error) {
+func OpenRange(ctx context.Context, backend backends.Backend, r *manifest.Range, offset int64) (io.ReadCloser, error) {
 	if offset > r.Length {
 		return nil, fmt.Errorf("invalid offset")
 	}

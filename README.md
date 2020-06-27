@@ -8,6 +8,8 @@ USAGE
   jam [opts] <subcommand> [opts]
 
 SUBCOMMANDS
+  integrity  integrity check. for full effect, disable caching and enable read
+             comparison
   key        encryption key utilities
   ls         ls lists files in the given snapshot
   mount      mounts snap as read-only filesystem

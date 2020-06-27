@@ -31,6 +31,7 @@ var (
 		ShortHelp:  "jam preserves your data",
 		ShortUsage: fmt.Sprintf("%s [opts] <subcommand> [opts]", os.Args[0]),
 		Subcommands: []*ffcli.Command{
+			cmdIntegrity,
 			cmdKeys,
 			cmdLs,
 			cmdMount,
