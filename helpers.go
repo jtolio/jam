@@ -131,7 +131,7 @@ func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Bac
 	}
 
 	codecMap := enc.NewCodecMap(enc.NewSecretboxCodec(*sysFlagBlockSizeDefault))
-	codecMap.Register(hashdb.HashSuffix,
+	codecMap.Register(hashdb.SmallHashsetSuffix,
 		enc.NewSecretboxCodec(*sysFlagBlockSizeSmall))
 	store = enc.NewEncWrapper(codecMap, enc.NewHMACKeyGenerator(encKey), store)
 	hashes, err = hashdb.Open(ctx, store)

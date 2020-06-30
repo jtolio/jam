@@ -16,7 +16,8 @@ import (
 
 const versionHeader = "jam-v0\n"
 const HashPrefix = "hash/"
-const HashSuffix = ".hs"
+const SmallHashsetSuffix = ".hs"
+const SmallHashsetThreshold = 64 * 1024
 
 type DB struct {
 	backend backends.Backend
@@ -162,7 +163,10 @@ func (d *DB) flush(ctx context.Context, hashes map[string]*manifest.Stream) (str
 		return "", err
 	}
 
-	path := HashPrefix + streams.IdPathComponent(utils.IdGen()) + HashSuffix
+	path := HashPrefix + streams.IdPathComponent(utils.IdGen())
+	if out.Len() <= SmallHashsetThreshold {
+		path += SmallHashsetSuffix
+	}
 
 	err = d.backend.Put(ctx, path, io.MultiReader(
 		bytes.NewReader([]byte(versionHeader)),
