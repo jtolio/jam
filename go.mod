@@ -11,6 +11,7 @@ require (
 	github.com/pkg/sftp v1.11.0
 	github.com/stretchr/testify v1.5.1
 	github.com/zeebo/errs v1.2.2
-	golang.org/x/crypto v0.0.0-20200403201458-baeed622b8d8
-	storj.io/uplink v1.0.7-0.20200603135833-b0397207ec51
+	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
+	storj.io/common v0.0.0-20200727180312-4725191b192d
+	storj.io/uplink v1.1.2
 )

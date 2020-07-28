@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"storj.io/common/socket"
 	"storj.io/uplink"
 
 	"github.com/jtolds/jam/backends"
@@ -33,7 +34,7 @@ func New(ctx context.Context, u *url.URL) (backends.Backend, error) {
 		return nil, Error.Wrap(err)
 	}
 
-	p, err := (&uplink.Config{DialContext: newDialer(ctx).DialContext}).OpenProject(ctx, access)
+	p, err := (&uplink.Config{DialContext: socket.BackgroundDialer().DialContext}).OpenProject(ctx, access)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
