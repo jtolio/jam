@@ -15,6 +15,7 @@ features:
   support multi-command sessions
     shell?
   webserver?
+  manifest splitting
 sftp:
   figure out better read performance
     evidently WriteTo is better than Read
