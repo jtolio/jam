@@ -232,7 +232,7 @@ func (db *DB) Rename(ctx context.Context, re *regexp.Regexp, replacement string)
 	return nil
 }
 
-func (db *DB) DeleteAll(ctx context.Context, re *regexp.Regexp) error {
+func (db *DB) DeleteAll(ctx context.Context, matcher func(path string) (delete bool)) error {
 	var queue []string
 	it, err := db.tree.SeekFirst()
 	if err != nil {
@@ -251,7 +251,7 @@ func (db *DB) DeleteAll(ctx context.Context, re *regexp.Regexp) error {
 			}
 			return err
 		}
-		if re.MatchString(path) {
+		if matcher(path) {
 			queue = append(queue, path)
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
 
@@ -14,10 +15,20 @@ import (
 )
 
 var (
+	storeFlags       = flag.NewFlagSet("", flag.ExitOnError)
+	storeFlagReplace = storeFlags.Bool("r", false,
+		"if set, remove and replace anything with the given prefix")
+
+	rmFlags      = flag.NewFlagSet("", flag.ExitOnError)
+	rmFlagRegexp = rmFlags.Bool("r", false,
+		"if true, removes using regex matching instead of prefix matching. "+
+			"https://golang.org/pkg/regexp/#Regexp.Match for semantics.")
+
 	cmdStore = &ffcli.Command{
 		Name:       "store",
 		ShortHelp:  "store adds the given source directory to a new snapshot, forked\n\tfrom the latest snapshot.",
-		ShortUsage: fmt.Sprintf("%s [opts] store <source-dir> [<target-prefix>]", os.Args[0]),
+		ShortUsage: fmt.Sprintf("%s [opts] store [opts] <source-dir> [<target-prefix>]", os.Args[0]),
+		FlagSet:    storeFlags,
 		Exec:       Store,
 	}
 	cmdRename = &ffcli.Command{
@@ -29,10 +40,10 @@ var (
 		Exec:       Rename,
 	}
 	cmdRm = &ffcli.Command{
-		Name: "rm",
-		ShortHelp: ("rm deletes all paths that match the provided regexp.\n\t" +
-			"https://golang.org/pkg/regexp/#Regexp.Match for semantics."),
-		ShortUsage: fmt.Sprintf("%s [opts] rm <regexp>", os.Args[0]),
+		Name:       "rm",
+		ShortHelp:  ("rm deletes all paths that match the provided prefix"),
+		ShortUsage: fmt.Sprintf("%s [opts] rm [opts] <prefix>", os.Args[0]),
+		FlagSet:    rmFlags,
 		Exec:       Remove,
 	}
 )
@@ -58,6 +69,15 @@ func Store(ctx context.Context, args []string) error {
 		return err
 	}
 	defer sess.Close()
+
+	if *storeFlagReplace {
+		err = sess.DeleteAll(ctx, func(path string) bool {
+			return strings.HasPrefix(path, targetPrefix)
+		})
+		if err != nil {
+			return err
+		}
+	}
 
 	// TODO: don't abort the entire walk when just one file fails
 	err = filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
@@ -134,9 +154,18 @@ func Remove(ctx context.Context, args []string) error {
 	if len(args) != 1 {
 		return flag.ErrHelp
 	}
-	re, err := regexp.Compile(args[0])
-	if err != nil {
-		return err
+	var matcher func(string) bool
+
+	if *rmFlagRegexp {
+		re, err := regexp.Compile(args[0])
+		if err != nil {
+			return err
+		}
+		matcher = re.MatchString
+	} else {
+		matcher = func(path string) bool {
+			return strings.HasPrefix(path, args[0])
+		}
 	}
 
 	mgr, _, _, close, err := getManager(ctx)
@@ -151,7 +180,7 @@ func Remove(ctx context.Context, args []string) error {
 	}
 	defer sess.Close()
 
-	err = sess.DeleteAll(ctx, re)
+	err = sess.DeleteAll(ctx, matcher)
 	if err != nil {
 		return err
 	}

@@ -46,7 +46,8 @@ func Integrity(ctx context.Context, args []string) error {
 	missing := map[string]bool{}
 	bad := map[string]bool{}
 
-	// check to make sure a blob exists for every hash
+	utils.L(ctx).Debugf("confirming that a blob exists for every hash")
+
 	err = backend.List(ctx, streams.BlobPrefix,
 		func(ctx context.Context, path string) error {
 			blobs[path] = true
@@ -78,6 +79,8 @@ func Integrity(ctx context.Context, args []string) error {
 		return err
 	}
 
+	utils.L(ctx).Debugf("no dangling hashes")
+
 	if *integrityFlagShowUnneeded {
 		for path := range blobs {
 			if _, exists := blobLastRange[path]; !exists {
@@ -85,6 +88,8 @@ func Integrity(ctx context.Context, args []string) error {
 			}
 		}
 	}
+
+	utils.L(ctx).Debugf("make sure a hash for every listed path exists")
 
 	// check to make sure a hash for every listed path exists
 	snap, _, err := getReadSnapshot(ctx, mgr, *integrityFlagSnapshot)
@@ -106,8 +111,12 @@ func Integrity(ctx context.Context, args []string) error {
 		return err
 	}
 
+	utils.L(ctx).Debugf("no dangling paths")
+
 	// check to make sure none of the blobs are truncated
 	if !*integrityFlagSkipBlobEnd {
+		utils.L(ctx).Debugf("checking to make sure the last byte of each blob is readable")
+
 		for path, r := range blobLastRange {
 			utils.L(ctx).Debugf("checking end of %q, %d", path, r.Offset+r.Length)
 			rc, err := streams.OpenRange(ctx, backend, r, r.Length-1)
@@ -125,6 +134,8 @@ func Integrity(ctx context.Context, args []string) error {
 				return err
 			}
 		}
+
+		utils.L(ctx).Debugf("looks good")
 	}
 
 	return nil

@@ -50,8 +50,8 @@ func (s *Session) Delete(ctx context.Context, path string) error {
 	return s.paths.Delete(ctx, path)
 }
 
-func (s *Session) DeleteAll(ctx context.Context, re *regexp.Regexp) error {
-	return s.paths.DeleteAll(ctx, re)
+func (s *Session) DeleteAll(ctx context.Context, matcher func(string) bool) error {
+	return s.paths.DeleteAll(ctx, matcher)
 }
 
 // PutFile causes the Session to take ownership of the data io.ReadCloser and will close it when the Session

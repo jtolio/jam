@@ -17,8 +17,7 @@ SUBCOMMANDS
              in the system, forked from the latest snapshot. See
              https://golang.org/pkg/regexp/#Regexp.ReplaceAll for semantics.
   revert-to  revert-to makes a new snapshot that matches an older one
-  rm         rm deletes all paths that match the provided regexp.
-             https://golang.org/pkg/regexp/#Regexp.Match for semantics.
+  rm         rm deletes all paths that match the provided prefix
   snaps      lists snapshots
   store      store adds the given source directory to a new snapshot, forked
              from the latest snapshot.
