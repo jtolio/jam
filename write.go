@@ -79,6 +79,8 @@ func Store(ctx context.Context, args []string) error {
 		}
 	}
 
+	var addedPaths int64
+
 	// TODO: don't abort the entire walk when just one file fails
 	err = filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -98,7 +100,12 @@ func Store(ctx context.Context, args []string) error {
 			if err != nil {
 				return err
 			}
-			return sess.PutSymlink(ctx, targetPrefix+base, info.ModTime(), info.ModTime(), uint32(info.Mode()), target)
+			err = sess.PutSymlink(ctx, targetPrefix+base, info.ModTime(), info.ModTime(), uint32(info.Mode()), target)
+			if err != nil {
+				return err
+			}
+			addedPaths++
+			return nil
 		}
 
 		if !info.Mode().IsRegular() {
@@ -112,11 +119,18 @@ func Store(ctx context.Context, args []string) error {
 		}
 
 		// PutFile closes the fh
-		return sess.PutFile(ctx, targetPrefix+base, info.ModTime(), info.ModTime(), uint32(info.Mode()), fh)
+		err = sess.PutFile(ctx, targetPrefix+base, info.ModTime(), info.ModTime(), uint32(info.Mode()), fh)
+		if err != nil {
+			return err
+		}
+		addedPaths++
+		return nil
 	})
 	if err != nil {
 		return err
 	}
+
+	utils.L(ctx).Normalf("added %d paths", addedPaths)
 
 	return sess.Commit(ctx)
 }
