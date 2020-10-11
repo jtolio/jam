@@ -122,7 +122,7 @@ func (db *DB) HasPrefix(ctx context.Context, prefix string) (exists bool, err er
 	return strings.HasPrefix(path, prefix), nil
 }
 
-func (db *DB) List(ctx context.Context, prefix, delimiter string,
+func (db *DB) List(ctx context.Context, prefix string, recursive bool,
 	cb func(ctx context.Context, path string, content *manifest.Content) error) error {
 	lastPath := ""
 	var lastContent *manifest.Content
@@ -141,9 +141,9 @@ func (db *DB) List(ctx context.Context, prefix, delimiter string,
 			break
 		}
 
-		if delimiter != "" {
+		if !recursive {
 			// TODO: we should skip the iterator forward for performance,
-			if idx := strings.Index(path[len(prefix):], delimiter); idx >= 0 {
+			if idx := strings.Index(path[len(prefix):], "/"); idx >= 0 {
 				path = path[:len(prefix)+idx]
 				content = nil
 			}

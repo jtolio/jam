@@ -52,7 +52,7 @@ func Snaps(ctx context.Context, args []string) error {
 		}
 		defer snapshot.Close()
 		var fileCount int64
-		err = snapshot.List(ctx, "", "", func(ctx context.Context, entry *session.ListEntry) error {
+		err = snapshot.List(ctx, "", true, func(ctx context.Context, entry *session.ListEntry) error {
 			fileCount++
 			return nil
 		})

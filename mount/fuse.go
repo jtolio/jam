@@ -157,7 +157,7 @@ var _ fs.HandleReadDirAller = (*fuseDir)(nil)
 
 func (d *fuseDir) ReadDirAll(ctx context.Context) (entries []fuse.Dirent, err error) {
 	prefix := fullpath(d.n.path, "")
-	err = d.n.snap.List(ctx, prefix, "/",
+	err = d.n.snap.List(ctx, prefix, false,
 		func(ctx context.Context, entry *session.ListEntry) error {
 			mode := fuse.DT_Dir
 			if !entry.Prefix {

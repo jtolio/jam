@@ -97,7 +97,7 @@ func Integrity(ctx context.Context, args []string) error {
 		return err
 	}
 	defer snap.Close()
-	err = snap.List(ctx, "", "", func(ctx context.Context, entry *session.ListEntry) error {
+	err = snap.List(ctx, "", true, func(ctx context.Context, entry *session.ListEntry) error {
 		if entry.Meta.Type != manifest.Metadata_FILE {
 			return nil
 		}

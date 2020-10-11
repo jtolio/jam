@@ -105,16 +105,12 @@ func List(ctx context.Context, args []string) error {
 	}
 	defer snap.Close()
 
-	delimiter := "/"
-	if *listFlagRecursive {
-		delimiter = ""
-	}
 	prefix := ""
 	if len(args) > 0 {
 		prefix = args[0]
 	}
 
-	return snap.List(ctx, prefix, delimiter, func(ctx context.Context, entry *session.ListEntry) error {
+	return snap.List(ctx, prefix, *listFlagRecursive, func(ctx context.Context, entry *session.ListEntry) error {
 		if entry.Prefix {
 			fmt.Println(entry.Path + "/")
 		} else {

@@ -42,9 +42,9 @@ func (e *ListEntry) Stream(ctx context.Context) (*streams.Stream, error) {
 	return streams.Open(ctx, e.backend, e.data)
 }
 
-func (s *Snapshot) List(ctx context.Context, prefix, delimiter string,
+func (s *Snapshot) List(ctx context.Context, prefix string, recursive bool,
 	cb func(ctx context.Context, entry *ListEntry) error) error {
-	return s.paths.List(ctx, prefix, delimiter,
+	return s.paths.List(ctx, prefix, recursive,
 		func(ctx context.Context, path string, content *manifest.Content) error {
 			if content == nil {
 				return cb(ctx, &ListEntry{Path: path, Prefix: true})
