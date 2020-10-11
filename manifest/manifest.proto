@@ -50,7 +50,7 @@ message EntrySet {
 }
 
 message Page {
-  string sort_key = 1;
+  string prefix = 1; // currently set only if this page is a branch
   oneof descendents {
     Stream branch = 2;
     EntrySet entries = 3;
