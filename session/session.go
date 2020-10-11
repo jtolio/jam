@@ -196,18 +196,11 @@ func (s *Session) Commit(ctx context.Context) (err error) {
 		utils.L(ctx).Normalf("no changes detected, skipping new manifest")
 		return nil
 	}
-	rc, err := s.paths.Serialize(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errs.Combine(err, rc.Close())
-	}()
 	// TODO: make sure this timestamp is strictly newer than all previous
 	// timestamps, and make sure you can't delete the newest timestamp,
 	// to avoid key reuse with different snapshots with the same timestamp
 	ts := time.Now()
-	err = s.backend.Put(ctx, timestampToPath(ts), rc)
+	err = s.paths.SerializeTo(ctx, timestampToPath(ts))
 	if err != nil {
 		return err
 	}

@@ -274,7 +274,7 @@ func (db *DB) Changed() bool {
 	return db.changed
 }
 
-func (db *DB) Serialize(ctx context.Context) (io.ReadCloser, error) {
+func (db *DB) SerializeTo(ctx context.Context, destinationPath string) error {
 	// TODO: don't just dump all of the entries into the root manifest page.
 	// TODO: even if the whole manifest is in RAM, don't double the RAM usage here
 	var entries manifest.EntrySet
@@ -282,7 +282,7 @@ func (db *DB) Serialize(ctx context.Context) (io.ReadCloser, error) {
 	it, err := db.tree.SeekFirst()
 	if err != nil {
 		if err != io.EOF {
-			return nil, err
+			return err
 		}
 	} else {
 		defer it.Close()
@@ -292,7 +292,7 @@ func (db *DB) Serialize(ctx context.Context) (io.ReadCloser, error) {
 				if err == io.EOF {
 					break
 				}
-				return nil, err
+				return err
 			}
 			entries.Entries = append(entries.Entries, &manifest.Entry{
 				Path:    []byte(path),
@@ -307,23 +307,23 @@ func (db *DB) Serialize(ctx context.Context) (io.ReadCloser, error) {
 	}
 	data, err := utils.MarshalSized(&page)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var out bytes.Buffer
 	compressor := zlib.NewWriter(&out)
 	_, err = compressor.Write(data)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = compressor.Close()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return ioutil.NopCloser(io.MultiReader(
+	return db.backend.Put(ctx, destinationPath, ioutil.NopCloser(io.MultiReader(
 		bytes.NewReader([]byte(versionHeader)),
-		utils.NewFramingReader(&out))), nil
+		utils.NewFramingReader(&out))))
 }
 
 func (db *DB) Close() error {
