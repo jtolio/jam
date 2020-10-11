@@ -233,3 +233,11 @@ func (a *sortKey) Less(bi blobs.SortKey) bool {
 	}
 	return a.col2 < b.col2
 }
+
+func (s *Session) List(ctx context.Context, prefix string, recursive bool,
+	cb func(ctx context.Context, path string, prefix bool) error) error {
+	return s.paths.List(ctx, prefix, recursive,
+		func(ctx context.Context, path string, content *manifest.Content) error {
+			return cb(ctx, path, content == nil)
+		})
+}

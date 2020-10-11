@@ -70,10 +70,13 @@ func Store(ctx context.Context, args []string) error {
 	}
 	defer sess.Close()
 
+	pathsToRemove := map[string]struct{}{}
 	if *storeFlagReplace {
-		err = sess.DeleteAll(ctx, func(path string) bool {
-			return strings.HasPrefix(path, targetPrefix)
-		})
+		err := sess.List(ctx, targetPrefix, true,
+			func(ctx context.Context, path string, _ bool) error {
+				pathsToRemove[path] = struct{}{}
+				return nil
+			})
 		if err != nil {
 			return err
 		}
@@ -104,6 +107,7 @@ func Store(ctx context.Context, args []string) error {
 			if err != nil {
 				return err
 			}
+			delete(pathsToRemove, targetPrefix+base)
 			addedPaths++
 			return nil
 		}
@@ -123,6 +127,7 @@ func Store(ctx context.Context, args []string) error {
 		if err != nil {
 			return err
 		}
+		delete(pathsToRemove, targetPrefix+base)
 		addedPaths++
 		return nil
 	})
@@ -130,7 +135,14 @@ func Store(ctx context.Context, args []string) error {
 		return err
 	}
 
-	utils.L(ctx).Normalf("added %d paths", addedPaths)
+	for path := range pathsToRemove {
+		err := sess.Delete(ctx, path)
+		if err != nil {
+			return err
+		}
+	}
+
+	utils.L(ctx).Normalf("added %d paths, removed %d paths", addedPaths, len(pathsToRemove))
 
 	return sess.Commit(ctx)
 }
