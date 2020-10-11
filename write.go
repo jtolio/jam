@@ -11,6 +11,7 @@ import (
 
 	"github.com/peterbourgon/ff/v3/ffcli"
 
+	"github.com/jtolds/jam/pathdb"
 	"github.com/jtolds/jam/utils"
 )
 
@@ -82,7 +83,7 @@ func Store(ctx context.Context, args []string) error {
 		}
 	}
 
-	var addedPaths int64
+	var addedPaths, changedPaths, unchangedPaths int64
 
 	// TODO: don't abort the entire walk when just one file fails
 	err = filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
@@ -103,12 +104,21 @@ func Store(ctx context.Context, args []string) error {
 			if err != nil {
 				return err
 			}
-			err = sess.PutSymlink(ctx, targetPrefix+base, info.ModTime(), info.ModTime(), uint32(info.Mode()), target)
+			state, err := sess.PutSymlink(ctx, targetPrefix+base, info.ModTime(), info.ModTime(), uint32(info.Mode()), target)
 			if err != nil {
 				return err
 			}
+			switch state {
+			case pathdb.PutStateNew:
+				addedPaths++
+			case pathdb.PutStateChanged:
+				changedPaths++
+			case pathdb.PutStateUnchanged:
+				unchangedPaths++
+			default:
+				return fmt.Errorf("unknown put state")
+			}
 			delete(pathsToRemove, targetPrefix+base)
-			addedPaths++
 			return nil
 		}
 
@@ -123,12 +133,21 @@ func Store(ctx context.Context, args []string) error {
 		}
 
 		// PutFile closes the fh
-		err = sess.PutFile(ctx, targetPrefix+base, info.ModTime(), info.ModTime(), uint32(info.Mode()), fh)
+		state, err := sess.PutFile(ctx, targetPrefix+base, info.ModTime(), info.ModTime(), uint32(info.Mode()), fh)
 		if err != nil {
 			return err
 		}
+		switch state {
+		case pathdb.PutStateNew:
+			addedPaths++
+		case pathdb.PutStateChanged:
+			changedPaths++
+		case pathdb.PutStateUnchanged:
+			unchangedPaths++
+		default:
+			return fmt.Errorf("unknown put state")
+		}
 		delete(pathsToRemove, targetPrefix+base)
-		addedPaths++
 		return nil
 	})
 	if err != nil {
@@ -136,13 +155,14 @@ func Store(ctx context.Context, args []string) error {
 	}
 
 	for path := range pathsToRemove {
-		err := sess.Delete(ctx, path)
+		_, err := sess.Delete(ctx, path)
 		if err != nil {
 			return err
 		}
 	}
 
-	utils.L(ctx).Normalf("added %d paths, removed %d paths", addedPaths, len(pathsToRemove))
+	utils.L(ctx).Normalf("added %d new paths, changed %d paths, removed %d paths, and left %d paths alone",
+		addedPaths, changedPaths, len(pathsToRemove), unchangedPaths)
 
 	return sess.Commit(ctx)
 }
@@ -168,10 +188,12 @@ func Rename(ctx context.Context, args []string) error {
 	}
 	defer sess.Close()
 
-	err = sess.Rename(ctx, re, args[1])
+	renamed, err := sess.Rename(ctx, re, args[1])
 	if err != nil {
 		return err
 	}
+
+	utils.L(ctx).Normalf("renamed %d paths", renamed)
 
 	return sess.Commit(ctx)
 }
@@ -206,10 +228,12 @@ func Remove(ctx context.Context, args []string) error {
 	}
 	defer sess.Close()
 
-	err = sess.DeleteAll(ctx, matcher)
+	removed, err := sess.DeleteAll(ctx, matcher)
 	if err != nil {
 		return err
 	}
+
+	utils.L(ctx).Normalf("removed %d paths", removed)
 
 	return sess.Commit(ctx)
 }

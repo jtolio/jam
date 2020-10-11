@@ -158,30 +158,42 @@ func (db *DB) List(ctx context.Context, prefix string, recursive bool,
 	return nil
 }
 
-func (db *DB) Put(ctx context.Context, path string, content *manifest.Content) error {
-	if v, ok := db.tree.Get(path); ok && reflect.DeepEqual(v, content) {
-		return nil
+type PutState int
+
+const (
+	PutStateNew       PutState = 1
+	PutStateChanged   PutState = 2
+	PutStateUnchanged PutState = 3
+)
+
+func (db *DB) Put(ctx context.Context, path string, content *manifest.Content) (state PutState, err error) {
+	state = PutStateNew
+	if v, ok := db.tree.Get(path); ok {
+		if reflect.DeepEqual(v, content) {
+			return PutStateUnchanged, nil
+		}
+		state = PutStateChanged
 	}
 
 	db.tree.Set(path, content)
 	db.changed = true
-	return nil
+	return state, nil
 }
 
-func (db *DB) Delete(ctx context.Context, path string) error {
+func (db *DB) Delete(ctx context.Context, path string) (removed bool, err error) {
 	if _, ok := db.tree.Get(path); !ok {
-		return nil
+		return false, nil
 	}
 
 	utils.L(ctx).Normalf("deleted path %q", path)
 	db.tree.Delete(path)
 	db.changed = true
-	return nil
+	return true, nil
 }
 
 // Rename renames paths using regexp.ReplaceAllString (replacement can have
 // regexp expansions). See the docs for regexp.ReplaceAllString
-func (db *DB) Rename(ctx context.Context, re *regexp.Regexp, replacement string) error {
+func (db *DB) Rename(ctx context.Context, re *regexp.Regexp, replacement string) (renamed int, err error) {
 	type element struct {
 		path    string
 		content *manifest.Content
@@ -190,9 +202,9 @@ func (db *DB) Rename(ctx context.Context, re *regexp.Regexp, replacement string)
 	it, err := db.tree.SeekFirst()
 	if err != nil {
 		if err == io.EOF {
-			return nil
+			return 0, nil
 		}
-		return err
+		return 0, err
 	}
 	defer it.Close()
 
@@ -202,7 +214,7 @@ func (db *DB) Rename(ctx context.Context, re *regexp.Regexp, replacement string)
 			if err == io.EOF {
 				break
 			}
-			return err
+			return 0, err
 		}
 		if re.MatchString(path) {
 			queue = append(queue, element{path: path, content: content})
@@ -221,19 +233,17 @@ func (db *DB) Rename(ctx context.Context, re *regexp.Regexp, replacement string)
 		db.changed = true
 	}
 
-	utils.L(ctx).Normalf("renamed %d paths", len(queue))
-
-	return nil
+	return len(queue), nil
 }
 
-func (db *DB) DeleteAll(ctx context.Context, matcher func(path string) (delete bool)) error {
+func (db *DB) DeleteAll(ctx context.Context, matcher func(path string) (delete bool)) (removed int, err error) {
 	var queue []string
 	it, err := db.tree.SeekFirst()
 	if err != nil {
 		if err == io.EOF {
-			return nil
+			return 0, nil
 		}
-		return err
+		return 0, err
 	}
 	defer it.Close()
 
@@ -243,7 +253,7 @@ func (db *DB) DeleteAll(ctx context.Context, matcher func(path string) (delete b
 			if err == io.EOF {
 				break
 			}
-			return err
+			return 0, err
 		}
 		if matcher(path) {
 			queue = append(queue, path)
@@ -257,9 +267,7 @@ func (db *DB) DeleteAll(ctx context.Context, matcher func(path string) (delete b
 		db.changed = true
 	}
 
-	utils.L(ctx).Normalf("deleted %d paths", len(queue))
-
-	return nil
+	return len(queue), nil
 }
 
 func (db *DB) Changed() bool {

@@ -46,34 +46,35 @@ func newSession(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Sto
 	}
 }
 
-func (s *Session) Delete(ctx context.Context, path string) error {
+func (s *Session) Delete(ctx context.Context, path string) (removed bool, err error) {
 	return s.paths.Delete(ctx, path)
 }
 
-func (s *Session) DeleteAll(ctx context.Context, matcher func(string) bool) error {
+func (s *Session) DeleteAll(ctx context.Context, matcher func(string) bool) (removed int, err error) {
 	return s.paths.DeleteAll(ctx, matcher)
 }
 
 // PutFile causes the Session to take ownership of the data io.ReadCloser and will close it when the Session
 // either uses the data or closes itself.
-func (s *Session) PutFile(ctx context.Context, path string, creation, modified time.Time, mode uint32, data ReadSeekCloser) error {
+func (s *Session) PutFile(ctx context.Context, path string, creation, modified time.Time, mode uint32,
+	data ReadSeekCloser) (state pathdb.PutState, err error) {
 	if strings.HasSuffix(path, "/") {
-		return fmt.Errorf("file paths cannot end with a '/': %q", path)
+		return pathdb.PutStateUnchanged, fmt.Errorf("file paths cannot end with a '/': %q", path)
 	}
 	creationPB, modifiedPB, err := convertTime(creation, modified)
 	if err != nil {
-		return errs.Combine(err, data.Close())
+		return pathdb.PutStateUnchanged, errs.Combine(err, data.Close())
 	}
 
 	startOffset, err := data.Seek(0, io.SeekCurrent)
 	if err != nil {
-		return errs.Combine(err, data.Close())
+		return pathdb.PutStateUnchanged, errs.Combine(err, data.Close())
 	}
 
 	hasher := sha256.New()
 	size, err := io.Copy(hasher, data)
 	if err != nil {
-		return errs.Combine(err, data.Close())
+		return pathdb.PutStateUnchanged, errs.Combine(err, data.Close())
 	}
 
 	var hashAlloc [sha256.Size]byte
@@ -81,7 +82,7 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 
 	_, err = data.Seek(startOffset, io.SeekStart)
 	if err != nil {
-		return errs.Combine(err, data.Close())
+		return pathdb.PutStateUnchanged, errs.Combine(err, data.Close())
 	}
 
 	content := &manifest.Content{
@@ -98,14 +99,14 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 
 	exists, err := s.hashes.Has(ctx, hashStr)
 	if err != nil {
-		return errs.Combine(err, data.Close())
+		return pathdb.PutStateUnchanged, errs.Combine(err, data.Close())
 	}
 
 	if exists || s.pending[hashStr] {
 		utils.L(ctx).Debugf("data for %q is duplicate", path)
 		err = data.Close()
 		if err != nil {
-			return err
+			return pathdb.PutStateUnchanged, err
 		}
 
 	} else {
@@ -128,20 +129,21 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 				return nil
 			})
 		if err != nil {
-			return err
+			return pathdb.PutStateUnchanged, err
 		}
 	}
 
 	return s.paths.Put(ctx, path, content)
 }
 
-func (s *Session) PutSymlink(ctx context.Context, path string, creation, modified time.Time, mode uint32, target string) error {
+func (s *Session) PutSymlink(ctx context.Context, path string, creation, modified time.Time, mode uint32, target string) (
+	state pathdb.PutState, err error) {
 	if strings.HasSuffix(path, "/") {
-		return fmt.Errorf("file paths cannot end with a '/': %q", path)
+		return pathdb.PutStateUnchanged, fmt.Errorf("file paths cannot end with a '/': %q", path)
 	}
 	creationPB, modifiedPB, err := convertTime(creation, modified)
 	if err != nil {
-		return err
+		return pathdb.PutStateUnchanged, err
 	}
 
 	content := &manifest.Content{
@@ -161,7 +163,7 @@ func (s *Session) PutSymlink(ctx context.Context, path string, creation, modifie
 
 // Rename renames paths using regexp.ReplaceAllString (replacement can have
 // regexp expansions). See the docs for regexp.ReplaceAllString
-func (s *Session) Rename(ctx context.Context, re *regexp.Regexp, replacement string) error {
+func (s *Session) Rename(ctx context.Context, re *regexp.Regexp, replacement string) (renamed int, err error) {
 	return s.paths.Rename(ctx, re, replacement)
 }
 
