@@ -94,7 +94,7 @@ func (db *DB) load(ctx context.Context, stream io.Reader) error {
 					// TODO: sadlol, remove after everything is migrated
 					entry.Content.Hash = contentHash[len(contentHash)-sha256.Size:]
 				}
-				db.tree.Set(entry.Path, entry.Content)
+				db.tree.Set(string(entry.Path), entry.Content)
 			}
 		}
 	}
@@ -295,7 +295,7 @@ func (db *DB) Serialize(ctx context.Context) (io.ReadCloser, error) {
 				return nil, err
 			}
 			entries.Entries = append(entries.Entries, &manifest.Entry{
-				Path:    path,
+				Path:    []byte(path),
 				Content: content,
 			})
 		}

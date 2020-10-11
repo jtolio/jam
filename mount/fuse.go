@@ -192,7 +192,7 @@ func (n *fuseNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.O
 }
 
 func (n *fuseNode) Readlink(ctx context.Context, req *fuse.ReadlinkRequest) (string, error) {
-	return n.meta.LinkTarget, nil
+	return string(n.meta.LinkTarget), nil
 }
 
 type fuseFS struct {

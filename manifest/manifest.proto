@@ -28,7 +28,7 @@ message Metadata {
   google.protobuf.Timestamp creation = 2;
   google.protobuf.Timestamp modified = 3;
   uint32 mode = 4;
-  string link_target = 5;
+  bytes link_target = 5;
 }
 
 message Content {
@@ -41,7 +41,7 @@ message Content {
 }
 
 message Entry {
-  string path = 1;
+  bytes path = 1;
   Content content = 2;
 }
 
@@ -50,7 +50,7 @@ message EntrySet {
 }
 
 message Page {
-  string prefix = 1; // currently set only if this page is a branch
+  bytes prefix = 1; // currently set only if this page is a branch
   oneof descendents {
     Stream branch = 2;
     EntrySet entries = 3;

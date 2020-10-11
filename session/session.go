@@ -152,7 +152,7 @@ func (s *Session) PutSymlink(ctx context.Context, path string, creation, modifie
 			Creation:   creationPB,
 			Modified:   modifiedPB,
 			Mode:       mode,
-			LinkTarget: target,
+			LinkTarget: []byte(target),
 		},
 	}
 
