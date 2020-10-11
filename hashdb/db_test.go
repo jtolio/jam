@@ -11,6 +11,7 @@ import (
 
 	"github.com/jtolds/jam/backends/fs"
 	"github.com/jtolds/jam/manifest"
+	"github.com/jtolds/jam/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,7 +46,7 @@ func TestHashDB(t *testing.T) {
 
 	require.NoError(t, db.Put(ctx, extendHash("a"),
 		&manifest.Stream{Ranges: []*manifest.Range{
-			{Blob: "1", Offset: 0, Length: 1},
+			{BlobBytes: []byte("1"), Offset: 0, Length: 1},
 		}}))
 	require.NoError(t, db.Flush(ctx))
 
@@ -57,7 +58,7 @@ func TestHashDB(t *testing.T) {
 	stream, err = db.Lookup(ctx, extendHash("a"))
 	require.NoError(t, err)
 	require.Equal(t, len(stream.Ranges), 1)
-	require.Equal(t, stream.Ranges[0].Blob, "1")
+	require.Equal(t, stream.Ranges[0].Blob(), utils.PathSafeIdEncode([]byte("1")))
 	require.Equal(t, stream.Ranges[0].Offset, int64(0))
 	require.Equal(t, stream.Ranges[0].Length, int64(1))
 	stream, err = db.Lookup(ctx, extendHash("b"))
@@ -66,8 +67,8 @@ func TestHashDB(t *testing.T) {
 
 	require.NoError(t, db.Put(ctx, extendHash("b"),
 		&manifest.Stream{Ranges: []*manifest.Range{
-			{Blob: "2", Offset: 4, Length: 2},
-			{Blob: "3", Offset: 1, Length: 3},
+			{BlobBytes: []byte("2"), Offset: 4, Length: 2},
+			{BlobBytes: []byte("3"), Offset: 1, Length: 3},
 		}}))
 	require.NoError(t, db.Flush(ctx))
 
@@ -79,16 +80,16 @@ func TestHashDB(t *testing.T) {
 	stream, err = db.Lookup(ctx, extendHash("a"))
 	require.NoError(t, err)
 	require.Equal(t, len(stream.Ranges), 1)
-	require.Equal(t, stream.Ranges[0].Blob, "1")
+	require.Equal(t, stream.Ranges[0].Blob(), utils.PathSafeIdEncode([]byte("1")))
 	require.Equal(t, stream.Ranges[0].Offset, int64(0))
 	require.Equal(t, stream.Ranges[0].Length, int64(1))
 	stream, err = db.Lookup(ctx, extendHash("b"))
 	require.NoError(t, err)
 	require.Equal(t, len(stream.Ranges), 2)
-	require.Equal(t, stream.Ranges[0].Blob, "2")
+	require.Equal(t, stream.Ranges[0].Blob(), utils.PathSafeIdEncode([]byte("2")))
 	require.Equal(t, stream.Ranges[0].Offset, int64(4))
 	require.Equal(t, stream.Ranges[0].Length, int64(2))
-	require.Equal(t, stream.Ranges[1].Blob, "3")
+	require.Equal(t, stream.Ranges[1].Blob(), utils.PathSafeIdEncode([]byte("3")))
 	require.Equal(t, stream.Ranges[1].Offset, int64(1))
 	require.Equal(t, stream.Ranges[1].Length, int64(3))
 

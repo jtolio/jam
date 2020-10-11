@@ -10,6 +10,7 @@ import (
 	"github.com/jtolds/jam/backends"
 	"github.com/jtolds/jam/backends/backendtest"
 	"github.com/jtolds/jam/backends/fs"
+	"github.com/jtolds/jam/hashdb"
 )
 
 var (
@@ -28,8 +29,11 @@ func TestFSBackend(t *testing.T) {
 			return nil, nil, err
 		}
 
+		codecMap := NewCodecMap(NewSecretboxCodec(16 * 1024))
+		codecMap.Register(hashdb.SmallHashsetSuffix,
+			NewSecretboxCodec(1024))
 		return NewEncWrapper(
-				NewSecretboxCodec(16*1024),
+				codecMap,
 				NewHMACKeyGenerator([]byte("hello")),
 				b),
 			func() error {
