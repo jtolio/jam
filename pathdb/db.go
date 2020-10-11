@@ -124,9 +124,6 @@ func (db *DB) HasPrefix(ctx context.Context, prefix string) (exists bool, err er
 
 func (db *DB) List(ctx context.Context, prefix string, recursive bool,
 	cb func(ctx context.Context, path string, content *manifest.Content) error) error {
-	lastPath := ""
-	var lastContent *manifest.Content
-	lastSet := false
 	it, _ := db.tree.Seek(prefix)
 
 	for {
@@ -142,23 +139,20 @@ func (db *DB) List(ctx context.Context, prefix string, recursive bool,
 		}
 
 		if !recursive {
-			// TODO: we should skip the iterator forward for performance,
 			if idx := strings.Index(path[len(prefix):], "/"); idx >= 0 {
 				path = path[:len(prefix)+idx]
-				content = nil
+				err = cb(ctx, path, nil)
+				if err != nil {
+					return err
+				}
+				it, _ = db.tree.Seek(path + "0") // "0" is the next byte after "/"
+				continue
 			}
 		}
 
-		if !lastSet || path != lastPath || content != lastContent {
-			// TODO: once we skip the iterator forward, we can stop doing
-			// this deduplication business
-			err = cb(ctx, path, content)
-			if err != nil {
-				return err
-			}
-			lastPath = path
-			lastContent = content
-			lastSet = true
+		err = cb(ctx, path, content)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
