@@ -165,3 +165,13 @@ func HashSplit(ctx context.Context, args []string) error {
 
 	return hashes.Split(ctx)
 }
+
+func byteFmt(bytes int64) string {
+	val := float64(bytes)
+	suffixes := []string{"B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"}
+	for val > 1024 {
+		val /= 1024
+		suffixes = suffixes[1:]
+	}
+	return fmt.Sprintf("%0.02f %s", val, suffixes[0])
+}

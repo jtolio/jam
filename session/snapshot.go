@@ -39,6 +39,9 @@ type ListEntry struct {
 }
 
 func (e *ListEntry) Stream(ctx context.Context) (*streams.Stream, error) {
+	if e.data == nil {
+		return nil, errs.New("no stream found")
+	}
 	return streams.Open(ctx, e.backend, e.data)
 }
 

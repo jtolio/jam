@@ -10,6 +10,7 @@ import (
 
 	"github.com/peterbourgon/ff/v3/ffcli"
 
+	"github.com/jtolds/jam/manifest"
 	"github.com/jtolds/jam/session"
 )
 
@@ -52,15 +53,24 @@ func Snaps(ctx context.Context, args []string) error {
 		}
 		defer snapshot.Close()
 		var fileCount int64
+		var byteCount int64
 		err = snapshot.List(ctx, "", true, func(ctx context.Context, entry *session.ListEntry) error {
 			fileCount++
-			return nil
+			if entry.Prefix || entry.Meta.Type != manifest.Metadata_FILE {
+				return nil
+			}
+			s, err := entry.Stream(ctx)
+			if err != nil {
+				return err
+			}
+			byteCount += s.Length()
+			return s.Close()
 		})
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("%v: %v (%d files)\n", timestamp.UnixNano(), timestamp.Local().Format("2006-01-02 03:04:05 pm"), fileCount)
+		fmt.Printf("%v: %v (%d files, %s)\n", timestamp.UnixNano(), timestamp.Local().Format("2006-01-02 03:04:05 pm"), fileCount, byteFmt(byteCount))
 		return nil
 	})
 }
