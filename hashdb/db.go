@@ -74,12 +74,12 @@ func (d *DB) loadStream(ctx context.Context, stream io.Reader, path string) erro
 		return err
 	}
 	if versionHeader != string(v) {
-		return errs.New("invalid hashset version")
+		return errs.New("invalid hashset version for hashset %q", path)
 	}
 
 	r, err := zlib.NewReader(utils.NewUnframingReader(stream))
 	if err != nil {
-		return err
+		return errs.New("error for hashset %q: %+v", path, err)
 	}
 	defer func() {
 		err = errs.Combine(err, r.Close())
@@ -92,13 +92,13 @@ func (d *DB) loadStream(ctx context.Context, stream io.Reader, path string) erro
 			if err == io.EOF {
 				break
 			}
-			return err
+			return errs.New("error for hashset %q: %+v", path, err)
 		}
 		for _, entry := range set.Hashes {
 			hashBytes := entry.Hash
 			if len(hashBytes) != sha256.Size {
 				if len(hashBytes) != sha256.Size*2 {
-					return errs.New("unknown hash length")
+					return errs.New("unknown hash length for hashset %q", path)
 				}
 				// TODO: sadlol, remove after everything is migrated
 				hashBytes = hashBytes[len(hashBytes)-sha256.Size:]

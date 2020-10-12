@@ -28,7 +28,6 @@ support changing encryption settings for some data
   algorithm
   root key
 integrity check:
-  check all manifests
   check that there aren't multiple references per hash, or that
     all hash references are good (there is no guaranteed order)
 other TODOs in comments
