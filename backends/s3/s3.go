@@ -9,7 +9,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/zeebo/errs"
@@ -31,15 +33,45 @@ type Backend struct {
 	svc    *s3.S3
 }
 
-func New(ctx context.Context, url *url.URL) (backends.Backend, error) {
-	sess, err := session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable})
+func New(ctx context.Context, u *url.URL) (backends.Backend, error) {
+	parts := strings.SplitN(strings.TrimPrefix(u.Path, "/"), "/", 2)
+	var prefix string
+	bucket := parts[0]
+	if len(parts) > 1 {
+		prefix = parts[1]
+	}
+
+	accessKey := u.User.Username()
+	secretKey, ok := u.User.Password()
+	if !ok {
+		return nil, Error.New("s3 url missing secret key. " +
+			"format s3://<ak>:<sk>@<region/endpoint>/bucket/prefix?disable-ssl=false")
+	}
+
+	cfg := aws.NewConfig().
+		WithCredentials(credentials.NewStaticCredentials(
+			accessKey, secretKey, ""))
+
+	if strings.Contains(u.Host, ".") {
+		cfg = cfg.WithEndpoint(u.Host).
+			WithRegion("us-east-1").
+			WithS3ForcePathStyle(true)
+	} else {
+		cfg = cfg.WithRegion(u.Host)
+	}
+
+	switch strings.ToLower(u.Query().Get("disable-ssl")) {
+	case "t", "y", "yes", "true":
+		cfg = cfg.WithDisableSSL(true)
+	}
+
+	sess, err := session.NewSession(cfg)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	return &Backend{
-		bucket: url.Host,
-		prefix: strings.TrimPrefix(url.Path, "/"),
+		bucket: bucket,
+		prefix: prefix,
 		svc:    s3.New(sess),
 	}, nil
 }

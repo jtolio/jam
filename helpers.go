@@ -35,7 +35,7 @@ var (
 		("place to store data. currently\n\tsupports:\n" +
 			"\t* file://<path>,\n" +
 			"\t* storj://<access>/<bucket>/<pre>\n" +
-			"\t* s3://<bucket>/<prefix>\n" +
+			"\t* s3://<ak>:<sk>@<region>/<bkt>/<pre>\n" +
 			"\t* sftp://<user>@<host>/<prefix>\n" +
 			"\tand can be comma-separated to\n\twrite to many at once"))
 	sysFlagStoreReadCompare = sysFlags.Bool("store.read-compare",

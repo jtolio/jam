@@ -43,7 +43,7 @@ FLAGS
                                        supports:
                                        * file://<path>,
                                        * storj://<access>/<bucket>/<pre>
-                                       * s3://<bucket>/<prefix>
+                                       * s3://<ak>:<sk>@<region>/<bkt>/<pre>
                                        * sftp://<user>@<host>/<prefix>
                                        and can be comma-separated to
                                        write to many at once
