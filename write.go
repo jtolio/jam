@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
@@ -154,7 +155,7 @@ func Store(ctx context.Context, args []string) error {
 		return err
 	}
 
-	for path := range pathsToRemove {
+	for _, path := range sortedKeys(pathsToRemove) {
 		_, err := sess.Delete(ctx, path)
 		if err != nil {
 			return err
@@ -236,4 +237,13 @@ func Remove(ctx context.Context, args []string) error {
 	utils.L(ctx).Normalf("removed %d paths", removed)
 
 	return sess.Commit(ctx)
+}
+
+func sortedKeys(m map[string]struct{}) (rv []string) {
+	rv = make([]string, 0, len(m))
+	for key := range m {
+		rv = append(rv, key)
+	}
+	sort.Strings(rv)
+	return rv
 }
