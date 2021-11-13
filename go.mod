@@ -1,4 +1,4 @@
-module github.com/jtolds/jam
+module github.com/jtolio/jam
 
 go 1.13
 

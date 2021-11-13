@@ -13,12 +13,12 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/blobs"
-	"github.com/jtolds/jam/manifest"
-	"github.com/jtolds/jam/pathdb/b"
-	"github.com/jtolds/jam/streams"
-	"github.com/jtolds/jam/utils"
+	"github.com/jtolio/jam/backends"
+	"github.com/jtolio/jam/blobs"
+	"github.com/jtolio/jam/manifest"
+	"github.com/jtolio/jam/pathdb/b"
+	"github.com/jtolio/jam/streams"
+	"github.com/jtolio/jam/utils"
 )
 
 const versionHeader = "jam-v0\n"

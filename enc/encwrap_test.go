@@ -7,10 +7,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/backends/backendtest"
-	"github.com/jtolds/jam/backends/fs"
-	"github.com/jtolds/jam/hashdb"
+	"github.com/jtolio/jam/backends"
+	"github.com/jtolio/jam/backends/backendtest"
+	"github.com/jtolio/jam/backends/fs"
+	"github.com/jtolio/jam/hashdb"
 )
 
 var (

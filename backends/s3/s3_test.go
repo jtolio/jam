@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package s3
@@ -11,8 +12,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/s3"
 
-	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/backends/backendtest"
+	"github.com/jtolio/jam/backends"
+	"github.com/jtolio/jam/backends/backendtest"
 )
 
 var (

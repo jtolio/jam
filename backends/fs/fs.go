@@ -13,7 +13,7 @@ import (
 	"github.com/natefinch/atomic"
 	"github.com/zeebo/errs"
 
-	"github.com/jtolds/jam/backends"
+	"github.com/jtolio/jam/backends"
 )
 
 func init() {

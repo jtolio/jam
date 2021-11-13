@@ -6,7 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/jtolds/jam/backends"
+	"github.com/jtolio/jam/backends"
 )
 
 // EncWrapper wraps a Backend with encryption.

@@ -3,8 +3,8 @@ package hashdb
 import (
 	"context"
 
-	"github.com/jtolds/jam/manifest"
-	"github.com/jtolds/jam/utils"
+	"github.com/jtolio/jam/manifest"
+	"github.com/jtolio/jam/utils"
 )
 
 func (d *DB) Coalesce(ctx context.Context) error {

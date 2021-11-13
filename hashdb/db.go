@@ -7,11 +7,12 @@ import (
 	"crypto/sha256"
 	"io"
 
-	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/manifest"
-	"github.com/jtolds/jam/streams"
-	"github.com/jtolds/jam/utils"
 	"github.com/zeebo/errs"
+
+	"github.com/jtolio/jam/backends"
+	"github.com/jtolio/jam/manifest"
+	"github.com/jtolio/jam/streams"
+	"github.com/jtolio/jam/utils"
 )
 
 const versionHeader = "jam-v0\n"

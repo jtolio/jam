@@ -9,10 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jtolds/jam/backends/fs"
-	"github.com/jtolds/jam/manifest"
-	"github.com/jtolds/jam/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/jtolio/jam/backends/fs"
+	"github.com/jtolio/jam/manifest"
+	"github.com/jtolio/jam/utils"
 )
 
 var ctx = context.Background()

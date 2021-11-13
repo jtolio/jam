@@ -7,8 +7,8 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/manifest"
+	"github.com/jtolio/jam/backends"
+	"github.com/jtolio/jam/manifest"
 )
 
 const BlobPrefix = "blob/"

@@ -9,11 +9,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/jtolds/jam/manifest"
-	"github.com/jtolds/jam/session"
-	"github.com/jtolds/jam/streams"
-	"github.com/jtolds/jam/utils"
 	"github.com/peterbourgon/ff/v3/ffcli"
+
+	"github.com/jtolio/jam/manifest"
+	"github.com/jtolio/jam/session"
+	"github.com/jtolio/jam/streams"
+	"github.com/jtolio/jam/utils"
 )
 
 var (

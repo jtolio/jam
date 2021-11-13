@@ -1,7 +1,7 @@
 package manifest
 
 import (
-	"github.com/jtolds/jam/utils"
+	"github.com/jtolio/jam/utils"
 )
 
 func (r *Range) Blob() string {

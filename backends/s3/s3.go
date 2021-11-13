@@ -16,7 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/zeebo/errs"
 
-	"github.com/jtolds/jam/backends"
+	"github.com/jtolio/jam/backends"
 )
 
 var (

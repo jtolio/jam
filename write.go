@@ -12,8 +12,8 @@ import (
 
 	"github.com/peterbourgon/ff/v3/ffcli"
 
-	"github.com/jtolds/jam/pathdb"
-	"github.com/jtolds/jam/utils"
+	"github.com/jtolio/jam/pathdb"
+	"github.com/jtolio/jam/utils"
 )
 
 var (

@@ -15,7 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/jtolds/jam/backends"
+	"github.com/jtolio/jam/backends"
 )
 
 var ctx = context.Background()

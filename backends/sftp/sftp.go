@@ -18,8 +18,8 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/knownhosts"
 
-	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/utils"
+	"github.com/jtolio/jam/backends"
+	"github.com/jtolio/jam/utils"
 )
 
 func init() {

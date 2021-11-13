@@ -10,8 +10,8 @@ import (
 
 	"github.com/peterbourgon/ff/v3/ffcli"
 
-	"github.com/jtolds/jam/manifest"
-	"github.com/jtolds/jam/session"
+	"github.com/jtolio/jam/manifest"
+	"github.com/jtolio/jam/session"
 )
 
 var (

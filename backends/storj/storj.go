@@ -7,11 +7,11 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/zeebo/errs"
 	"storj.io/common/socket"
 	"storj.io/uplink"
 
-	"github.com/jtolds/jam/backends"
-	"github.com/zeebo/errs"
+	"github.com/jtolio/jam/backends"
 )
 
 var (

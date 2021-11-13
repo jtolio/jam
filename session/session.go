@@ -14,12 +14,12 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 
-	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/blobs"
-	"github.com/jtolds/jam/hashdb"
-	"github.com/jtolds/jam/manifest"
-	"github.com/jtolds/jam/pathdb"
-	"github.com/jtolds/jam/utils"
+	"github.com/jtolio/jam/backends"
+	"github.com/jtolio/jam/blobs"
+	"github.com/jtolio/jam/hashdb"
+	"github.com/jtolio/jam/manifest"
+	"github.com/jtolio/jam/pathdb"
+	"github.com/jtolio/jam/utils"
 )
 
 type ReadSeekCloser interface {

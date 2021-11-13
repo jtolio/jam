@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/manifest"
+	"github.com/jtolio/jam/backends"
+	"github.com/jtolio/jam/manifest"
 )
 
 type Stream struct {

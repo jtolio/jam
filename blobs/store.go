@@ -8,9 +8,9 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/manifest"
-	"github.com/jtolds/jam/streams"
+	"github.com/jtolio/jam/backends"
+	"github.com/jtolio/jam/manifest"
+	"github.com/jtolio/jam/streams"
 )
 
 type entry struct {

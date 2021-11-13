@@ -12,9 +12,9 @@ import (
 
 	"github.com/peterbourgon/ff/v3/ffcli"
 
-	"github.com/jtolds/jam/mount"
-	"github.com/jtolds/jam/session"
-	"github.com/jtolds/jam/webdav"
+	"github.com/jtolio/jam/mount"
+	"github.com/jtolio/jam/session"
+	"github.com/jtolio/jam/webdav"
 )
 
 var (

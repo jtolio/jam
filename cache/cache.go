@@ -6,9 +6,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/hashdb"
-	"github.com/jtolds/jam/session"
+	"github.com/jtolio/jam/backends"
+	"github.com/jtolio/jam/hashdb"
+	"github.com/jtolio/jam/session"
 )
 
 type Cache struct {

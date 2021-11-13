@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/jtolds/jam/utils"
+	"github.com/jtolio/jam/utils"
 )
 
 type combined struct {

@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package sftp
@@ -7,9 +8,9 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/backends/backendtest"
-	"github.com/jtolds/jam/blobs"
+	"github.com/jtolio/jam/backends"
+	"github.com/jtolio/jam/backends/backendtest"
+	"github.com/jtolio/jam/blobs"
 )
 
 var (

@@ -15,12 +15,12 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"github.com/jtolds/jam/backends"
-	"github.com/jtolds/jam/blobs"
-	"github.com/jtolds/jam/cache"
-	"github.com/jtolds/jam/enc"
-	"github.com/jtolds/jam/hashdb"
-	"github.com/jtolds/jam/session"
+	"github.com/jtolio/jam/backends"
+	"github.com/jtolio/jam/blobs"
+	"github.com/jtolio/jam/cache"
+	"github.com/jtolio/jam/enc"
+	"github.com/jtolio/jam/hashdb"
+	"github.com/jtolio/jam/session"
 )
 
 var (

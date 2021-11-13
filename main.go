@@ -11,12 +11,12 @@ import (
 	ff "github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffcli"
 
-	"github.com/jtolds/jam/utils"
+	"github.com/jtolio/jam/utils"
 
-	_ "github.com/jtolds/jam/backends/fs"
-	_ "github.com/jtolds/jam/backends/s3"
-	_ "github.com/jtolds/jam/backends/sftp"
-	_ "github.com/jtolds/jam/backends/storj"
+	_ "github.com/jtolio/jam/backends/fs"
+	_ "github.com/jtolio/jam/backends/s3"
+	_ "github.com/jtolio/jam/backends/sftp"
+	_ "github.com/jtolio/jam/backends/storj"
 )
 
 var (
