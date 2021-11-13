@@ -112,12 +112,29 @@ func calcMode(meta *manifest.Metadata) (os.FileMode, error) {
 	return mode | os.FileMode(meta.Mode&0777), nil
 }
 
-func (f *webdavFile) Close() error                     { return f.data.Close() }
-func (f *webdavFile) Read(p []byte) (n int, err error) { return f.data.Read(p) }
-func (f *webdavFile) Seek(offset int64, whence int) (int64, error) {
-	return f.data.Seek(offset, whence)
+func (f *webdavFile) Close() error {
+	if f.data != nil {
+		return f.data.Close()
+	}
+	return nil
 }
+
+func (f *webdavFile) Read(p []byte) (n int, err error) {
+	if f.data != nil {
+		return f.data.Read(p)
+	}
+	return 0, io.EOF
+}
+
+func (f *webdavFile) Seek(offset int64, whence int) (int64, error) {
+	if f.data != nil {
+		return f.data.Seek(offset, whence)
+	}
+	return 0, nil
+}
+
 func (f *webdavFile) Readdir(count int) ([]fs.FileInfo, error) { return nil, nil }
+
 func (f *webdavFile) Stat() (fs.FileInfo, error) {
 	mode, err := calcMode(f.meta)
 	if err != nil {
@@ -127,9 +144,13 @@ func (f *webdavFile) Stat() (fs.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	size := int64(0)
+	if f.data != nil {
+		size = f.data.Length()
+	}
 	return &fileInfo{
 		name:    filepath.Base(f.path),
-		size:    f.data.Length(),
+		size:    size,
 		mode:    mode,
 		modTime: modTime,
 	}, nil
