@@ -14,6 +14,7 @@ import (
 
 	"github.com/jtolds/jam/mount"
 	"github.com/jtolds/jam/session"
+	"github.com/jtolds/jam/webdav"
 )
 
 var (
@@ -25,12 +26,23 @@ var (
 	mountFlagSnapshot  = mountFlags.String("snap", "latest", "which snapshot to use")
 	mountFlagReadahead = mountFlags.Int("readahead", 128*1024, "FUSE max readahead")
 
+	webdavFlags        = flag.NewFlagSet("", flag.ExitOnError)
+	webdavFlagSnapshot = webdavFlags.String("snap", "latest", "which snapshot to use")
+	webdavFlagAddr     = webdavFlags.String("addr", "localhost:8888", "address to listen on")
+
 	cmdMount = &ffcli.Command{
 		Name:       "mount",
 		ShortHelp:  "mounts snap as read-only filesystem",
 		ShortUsage: fmt.Sprintf("%s [opts] mount [opts] <target>", os.Args[0]),
 		FlagSet:    mountFlags,
 		Exec:       Mount,
+	}
+	cmdWebdav = &ffcli.Command{
+		Name:       "webdav",
+		ShortHelp:  "serves snap as read-only webdav",
+		ShortUsage: fmt.Sprintf("%s [opts] webdav [opts]", os.Args[0]),
+		FlagSet:    webdavFlags,
+		Exec:       Webdav,
 	}
 	cmdLs = &ffcli.Command{
 		Name:       "ls",
@@ -86,6 +98,27 @@ func Mount(ctx context.Context, args []string) error {
 		err = nil
 	}
 	return err
+}
+
+func Webdav(ctx context.Context, args []string) error {
+	if len(args) != 0 {
+		return flag.ErrHelp
+	}
+
+	mgr, _, _, mgrClose, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+	defer mgrClose()
+
+	snap, ts, err := getReadSnapshot(ctx, mgr, *webdavFlagSnapshot)
+	if err != nil {
+		return err
+	}
+	defer snap.Close()
+
+	fmt.Printf("serving snapshot %d at %q\n", ts.UnixNano(), *webdavFlagAddr)
+	return webdav.Serve(ctx, snap, *webdavFlagAddr)
 }
 
 func List(ctx context.Context, args []string) error {

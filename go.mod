@@ -12,6 +12,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/zeebo/errs v1.2.2
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
+	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 	storj.io/common v0.0.0-20210412024514-5bcb1fff421e
 	storj.io/uplink v1.4.6
 )

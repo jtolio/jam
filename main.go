@@ -42,6 +42,7 @@ var (
 			cmdStore,
 			cmdUnsnap,
 			cmdUtils,
+			cmdWebdav,
 		},
 		FlagSet: sysFlags,
 		Options: []ff.Option{
