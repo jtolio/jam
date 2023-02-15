@@ -15,13 +15,15 @@ type Cache struct {
 	persistent backends.Backend
 	cache      backends.Backend
 	both       backends.Backend
+	cacheBlobs bool
 }
 
-func New(ctx context.Context, persistent, cache backends.Backend) (*Cache, error) {
+func New(ctx context.Context, persistent, cache backends.Backend, cacheBlobs bool) (*Cache, error) {
 	c := &Cache{
 		persistent: persistent,
 		cache:      cache,
 		both:       backends.Combine(persistent, cache),
+		cacheBlobs: cacheBlobs,
 	}
 
 	return c, nil
@@ -80,5 +82,5 @@ func (c *Cache) shouldCache(path string) bool {
 	if strings.HasPrefix(path, session.ManifestPrefix) {
 		return true
 	}
-	return false
+	return c.cacheBlobs
 }

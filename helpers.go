@@ -49,6 +49,7 @@ var (
 		(&url.URL{Scheme: "file", Path: filepath.Join(homeDir(), ".jam", "cache")}).String(),
 		"where to cache things that are\n\tfrequently read")
 	sysFlagCacheEnabled = sysFlags.Bool("cache.enabled", true, "if false, disable caching")
+	sysFlagCacheBlobsEnabled = sysFlags.Bool("cache.blobs", false, "if true and caching is enabled, cache blobs")
 )
 
 func homeDir() string {
@@ -116,7 +117,7 @@ func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Bac
 			return nil, nil, nil, nil, err
 		}
 
-		wrappedStore, err := cache.New(ctx, store, cacheStore)
+		wrappedStore, err := cache.New(ctx, store, cacheStore, *sysFlagCacheBlobsEnabled)
 		if err != nil {
 			cacheStore.Close()
 			return nil, nil, nil, nil, err
