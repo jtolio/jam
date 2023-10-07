@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/zeebo/errs"
-	"storj.io/common/socket"
 	"storj.io/uplink"
 
 	"github.com/jtolio/jam/backends"
@@ -34,7 +33,7 @@ func New(ctx context.Context, u *url.URL) (backends.Backend, error) {
 		return nil, Error.Wrap(err)
 	}
 
-	p, err := (&uplink.Config{DialContext: socket.BackgroundDialer().DialContext}).OpenProject(ctx, access)
+	p, err := uplink.OpenProject(ctx, access)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
