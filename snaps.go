@@ -15,10 +15,14 @@ import (
 )
 
 var (
+	snapsFlags      = flag.NewFlagSet("", flag.ExitOnError)
+	snapsFlagsBrief = snapsFlags.Bool("b", false, "if set, just list snap timestamps only (brief)")
+
 	cmdSnaps = &ffcli.Command{
 		Name:       "snaps",
 		ShortHelp:  "lists snapshots",
 		ShortUsage: fmt.Sprintf("%s [opts] snaps", os.Args[0]),
+		FlagSet:    snapsFlags,
 		Exec:       Snaps,
 	}
 	cmdUnsnap = &ffcli.Command{
@@ -47,6 +51,11 @@ func Snaps(ctx context.Context, args []string) error {
 	defer mgrClose()
 
 	return mgr.ListSnapshots(ctx, func(ctx context.Context, timestamp time.Time) error {
+		if *snapsFlagsBrief {
+			fmt.Printf("%v: %v\n", timestamp.UnixNano(), timestamp.Local().Format("2006-01-02 03:04:05 pm"))
+			return nil
+		}
+
 		snapshot, err := mgr.OpenSnapshot(ctx, timestamp)
 		if err != nil {
 			return err
