@@ -46,7 +46,7 @@ func New(backend backends.Backend) *DB {
 
 func (d *DB) load(ctx context.Context) error {
 	var paths []string
-	err := d.backend.List(ctx, HashPrefix,
+	err := utils.SortedList(ctx, d.backend, HashPrefix,
 		func(ctx context.Context, path string) error {
 			r, err := d.backend.Get(ctx, path, 0, -1)
 			if err != nil {
