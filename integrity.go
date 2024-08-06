@@ -21,6 +21,7 @@ var (
 	integrityFlags            = flag.NewFlagSet("", flag.ExitOnError)
 	integrityFlagShowUnneeded = integrityFlags.Bool("show-unneeded", false, "if true, show unneeded blobs")
 	integrityFlagSkipBlobEnd  = integrityFlags.Bool("skip-blob-end", false, "if true, skip trying to read the known end of each blob")
+	integrityFlagSkipSnaps    = integrityFlags.Bool("skip-snaps", false, "if true, skip confirming that there are no dangling hashes in snapshots")
 
 	cmdIntegrity = &ffcli.Command{
 		Name:       "integrity",
@@ -92,35 +93,37 @@ func Integrity(ctx context.Context, args []string) error {
 		}
 	}
 
-	utils.L(ctx).Debugf("making sure a hash for every listed path in every snapshot exists")
+	if !*integrityFlagSkipSnaps {
+		utils.L(ctx).Debugf("making sure a hash for every listed path in every snapshot exists")
 
-	// check to make sure a hash for every listed path exists
-	err = mgr.ListSnapshots(ctx, func(ctx context.Context, timestamp time.Time) error {
-		utils.L(ctx).Debugf("checking snapshot %v: %v",
-			timestamp.UnixNano(),
-			timestamp.Local().Format("2006-01-02 03:04:05 pm"))
+		// check to make sure a hash for every listed path exists
+		err = mgr.ListSnapshots(ctx, func(ctx context.Context, timestamp time.Time) error {
+			utils.L(ctx).Debugf("checking snapshot %v: %v",
+				timestamp.UnixNano(),
+				timestamp.Local().Format("2006-01-02 03:04:05 pm"))
 
-		snap, err := mgr.OpenSnapshot(ctx, timestamp)
-		if err != nil {
-			return err
-		}
-		defer snap.Close()
-		return snap.List(ctx, "", true, func(ctx context.Context, entry *session.ListEntry) error {
-			if entry.Meta.Type != manifest.Metadata_FILE {
-				return nil
-			}
-			stream, err := entry.Stream(ctx)
+			snap, err := mgr.OpenSnapshot(ctx, timestamp)
 			if err != nil {
 				return err
 			}
-			return stream.Close()
+			defer snap.Close()
+			return snap.List(ctx, "", true, func(ctx context.Context, entry *session.ListEntry) error {
+				if entry.Meta.Type != manifest.Metadata_FILE {
+					return nil
+				}
+				stream, err := entry.Stream(ctx)
+				if err != nil {
+					return err
+				}
+				return stream.Close()
+			})
 		})
-	})
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return err
+		}
 
-	utils.L(ctx).Debugf("no dangling paths")
+		utils.L(ctx).Debugf("no dangling paths")
+	}
 
 	// check to make sure none of the blobs are truncated
 	if !*integrityFlagSkipBlobEnd {
