@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -129,25 +128,37 @@ func Integrity(ctx context.Context, args []string) error {
 	if !*integrityFlagSkipBlobEnd {
 		utils.L(ctx).Debugf("checking to make sure the last byte of each blob is readable")
 
+		errorsFound := 0
+
 		for path, r := range blobLastRange {
 			utils.L(ctx).Debugf("checking end of %q, %d", path, r.Offset+r.Length)
 			rc, err := streams.OpenRange(ctx, backend, r, r.Length-1)
 			if err != nil {
-				return err
+				utils.L(ctx).Urgentf("failed opening %q: %v", path, err)
+				errorsFound++
+				continue
 			}
 			// authenticated encryption will throw an error if the data is bad
-			_, err = io.Copy(ioutil.Discard, rc)
+			_, err = io.Copy(io.Discard, rc)
 			if err != nil {
 				rc.Close()
-				return err
+				utils.L(ctx).Urgentf("failed reading %q: %v", path, err)
+				errorsFound++
+				continue
 			}
 			err = rc.Close()
 			if err != nil {
-				return err
+				utils.L(ctx).Urgentf("failed closing %q: %v", path, err)
+				errorsFound++
+				continue
 			}
 		}
 
-		utils.L(ctx).Debugf("looks good")
+		if errorsFound == 0 {
+			utils.L(ctx).Debugf("looks good")
+		} else {
+			utils.L(ctx).Debugf("errors found: %d", errorsFound)
+		}
 	}
 
 	return nil
