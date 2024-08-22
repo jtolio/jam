@@ -4,6 +4,9 @@ jam preserves your data. you almost certainly want [restic](https://restic.net/)
 instead.
 
 ```
+DESCRIPTION
+  jam preserves your data
+
 USAGE
   jam [opts] <subcommand> [opts]
 
@@ -23,6 +26,7 @@ SUBCOMMANDS
              from the latest snapshot.
   unsnap     unsnap removes an old snap
   utils      miscellaneous utilities
+  webdav     serves snap as read-only webdav
 
 FLAGS
   -blobs.max-unflushed 1000            max number of objects to stage
@@ -31,11 +35,12 @@ FLAGS
   -blobs.size 62914560                 target blob size
   -cache file:///home/jt/.jam/cache    where to cache things that are
                                        frequently read
-  -cache.enabled true                  if false, disable caching
+  -cache.blobs=false                   if true and caching is enabled, cache blobs
+  -cache.enabled=true                  if false, disable caching
   -config /home/jt/.jam/jam.conf       path to config file
   -enc.block-size 16384                default encryption block size
   -enc.block-size-small 1024           encryption block size for small objects
-  -enc.key ...                         hex-encoded 32 byte encryption key,
+  -enc.key string                      hex-encoded 32 byte encryption key,
                                        or locked key (see jam key new/lock)
   -log.level normal                    default log level. can be:
                                        debug, normal, urgent, or none
@@ -47,7 +52,7 @@ FLAGS
                                        * sftp://<user>@<host>/<prefix>
                                        and can be comma-separated to
                                        write to many at once
-  -store.read-compare false            if true, compare reads across
+  -store.read-compare=false            if true, compare reads across
                                        all backends. useful for integrity
                                        checking
 ```

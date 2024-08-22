@@ -20,6 +20,8 @@ var (
 	storeFlags       = flag.NewFlagSet("", flag.ExitOnError)
 	storeFlagReplace = storeFlags.Bool("r", false,
 		"if set, remove and replace anything with the given prefix")
+	storeFlagsExclude = storeFlags.String("exclude", "",
+		"if set, a comma-separated list of full path prefixes to ignore locally")
 
 	rmFlags      = flag.NewFlagSet("", flag.ExitOnError)
 	rmFlagRegexp = rmFlags.Bool("r", false,
@@ -84,6 +86,15 @@ func Store(ctx context.Context, args []string) error {
 		}
 	}
 
+	var pathsToExclude []string
+	if len(*storeFlagsExclude) > 0 {
+		for _, path := range strings.Split(*storeFlagsExclude, ",") {
+			if len(path) > 0 {
+				pathsToExclude = append(pathsToExclude, path)
+			}
+		}
+	}
+
 	var addedPaths, changedPaths, unchangedPaths int64
 
 	// TODO: don't abort the entire walk when just one file fails
@@ -93,6 +104,12 @@ func Store(ctx context.Context, args []string) error {
 		}
 		if info.IsDir() {
 			return nil
+		}
+
+		for _, excludedPath := range pathsToExclude {
+			if strings.HasPrefix(path, excludedPath) {
+				return nil
+			}
 		}
 
 		base, err := filepath.Rel(source, path)
