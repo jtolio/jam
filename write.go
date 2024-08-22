@@ -97,19 +97,19 @@ func Store(ctx context.Context, args []string) error {
 
 	var addedPaths, changedPaths, unchangedPaths int64
 
-	// TODO: don't abort the entire walk when just one file fails
 	err = filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-
 		for _, excludedPath := range pathsToExclude {
 			if strings.HasPrefix(path, excludedPath) {
 				return nil
 			}
+		}
+
+		if err != nil {
+			utils.L(ctx).Normalf("skipping %q, %v", path, err)
+			return nil
+		}
+		if info.IsDir() {
+			return nil
 		}
 
 		base, err := filepath.Rel(source, path)
