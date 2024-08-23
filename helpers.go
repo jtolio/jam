@@ -65,7 +65,7 @@ func homeDir() string {
 
 func help(ctx context.Context, args []string) error { return flag.ErrHelp }
 
-func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Backend, hashes *hashdb.DB, close func() error, err error) {
+func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Backend, hashes hashdb.DB, close func() error, err error) {
 	if *sysFlagEncKey == "" {
 		return nil, nil, nil, nil, fmt.Errorf("invalid configuration, no root encryption key specified")
 	}
@@ -135,10 +135,9 @@ func getManager(ctx context.Context) (mgr *session.Manager, backend backends.Bac
 	codecMap.Register(hashdb.SmallHashsetSuffix,
 		enc.NewSecretboxCodec(*sysFlagBlockSizeSmall))
 	store = enc.NewEncWrapper(codecMap, enc.NewHMACKeyGenerator(encKey), store)
-	hashes, err = hashdb.Open(ctx, store)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
+	hashes = hashdb.AsyncHashDB(ctx, func(ctx context.Context) (hashdb.DB, error) {
+		return hashdb.Open(ctx, store)
+	})
 	blobs := blobs.NewStore(store, *sysFlagBlobSize, *sysFlagMaxUnflushed)
 	return session.NewManager(store, blobs, hashes), store, hashes,
 		func() error {

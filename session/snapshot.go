@@ -18,10 +18,10 @@ type Snapshot struct {
 	backend backends.Backend
 	paths   *pathdb.DB
 	blobs   *blobs.Store
-	hashes  *hashdb.DB
+	hashes  hashdb.DB
 }
 
-func newSnapshot(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Store, hashes *hashdb.DB) *Snapshot {
+func newSnapshot(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Store, hashes hashdb.DB) *Snapshot {
 	return &Snapshot{
 		backend: backend,
 		paths:   paths,

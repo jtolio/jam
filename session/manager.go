@@ -40,10 +40,10 @@ func pathToTimestamp(path string) (time.Time, error) {
 type Manager struct {
 	backend backends.Backend
 	blobs   *blobs.Store
-	hashes  *hashdb.DB
+	hashes  hashdb.DB
 }
 
-func NewManager(backend backends.Backend, blobStore *blobs.Store, hashes *hashdb.DB) *Manager {
+func NewManager(backend backends.Backend, blobStore *blobs.Store, hashes hashdb.DB) *Manager {
 	return &Manager{
 		backend: backend,
 		blobs:   blobStore,

@@ -20,7 +20,19 @@ const HashPrefix = "hash/"
 const SmallHashsetSuffix = ".hs"
 const SmallHashsetThreshold = 64 * 1024
 
-type DB struct {
+type DB interface {
+	Close() error
+	Coalesce(context.Context) error
+	Flush(context.Context) error
+	Has(ctx context.Context, hash string) (exists bool, err error)
+	Iterate(context.Context,
+		func(ctx context.Context, hash, hashset string, data *manifest.Stream) error) error
+	Lookup(ctx context.Context, hash string) (*manifest.Stream, error)
+	Put(ctx context.Context, hash string, data *manifest.Stream) error
+	Split(context.Context) error
+}
+
+type dbImpl struct {
 	backend backends.Backend
 
 	// TODO: do an LSM tree instead of putting all of this in RAM
@@ -30,13 +42,13 @@ type DB struct {
 	paths    []string
 }
 
-func Open(ctx context.Context, backend backends.Backend) (*DB, error) {
-	db := New(backend)
+func Open(ctx context.Context, backend backends.Backend) (DB, error) {
+	db := newDB(backend)
 	return db, db.load(ctx)
 }
 
-func New(backend backends.Backend) *DB {
-	return &DB{
+func newDB(backend backends.Backend) *dbImpl {
+	return &dbImpl{
 		backend:  backend,
 		existing: map[string]*manifest.Stream{},
 		new:      map[string]*manifest.Stream{},
@@ -44,7 +56,11 @@ func New(backend backends.Backend) *DB {
 	}
 }
 
-func (d *DB) load(ctx context.Context) error {
+func New(backend backends.Backend) DB {
+	return newDB(backend)
+}
+
+func (d *dbImpl) load(ctx context.Context) error {
 	var paths []string
 	err := utils.SortedList(ctx, d.backend, HashPrefix,
 		func(ctx context.Context, path string) error {
@@ -64,7 +80,7 @@ func (d *DB) load(ctx context.Context) error {
 	return nil
 }
 
-func (d *DB) loadStream(ctx context.Context, stream io.Reader, path string) error {
+func (d *dbImpl) loadStream(ctx context.Context, stream io.Reader, path string) error {
 	// TODO: reduce code duplication with pathdb.load
 	v := make([]byte, len([]byte(versionHeader)))
 	_, err := io.ReadFull(stream, v)
@@ -115,12 +131,12 @@ func (d *DB) loadStream(ctx context.Context, stream io.Reader, path string) erro
 	return nil
 }
 
-func (d *DB) Has(ctx context.Context, hash string) (exists bool, err error) {
+func (d *dbImpl) Has(ctx context.Context, hash string) (exists bool, err error) {
 	stream, err := d.Lookup(ctx, hash)
 	return stream != nil, err
 }
 
-func (d *DB) Lookup(ctx context.Context, hash string) (*manifest.Stream, error) {
+func (d *dbImpl) Lookup(ctx context.Context, hash string) (*manifest.Stream, error) {
 	rv := d.existing[hash]
 	if rv != nil {
 		return rv, nil
@@ -128,12 +144,12 @@ func (d *DB) Lookup(ctx context.Context, hash string) (*manifest.Stream, error) 
 	return d.new[hash], nil
 }
 
-func (d *DB) Put(ctx context.Context, hash string, data *manifest.Stream) error {
+func (d *dbImpl) Put(ctx context.Context, hash string, data *manifest.Stream) error {
 	d.new[hash] = data
 	return nil
 }
 
-func (d *DB) flush(ctx context.Context, hashes map[string]*manifest.Stream) (string, error) {
+func (d *dbImpl) flush(ctx context.Context, hashes map[string]*manifest.Stream) (string, error) {
 	if len(hashes) == 0 {
 		return "", nil
 	}
@@ -179,7 +195,7 @@ func (d *DB) flush(ctx context.Context, hashes map[string]*manifest.Stream) (str
 	return path, nil
 }
 
-func (d *DB) Flush(ctx context.Context) error {
+func (d *dbImpl) Flush(ctx context.Context) error {
 	path, err := d.flush(ctx, d.new)
 	if err != nil {
 		return err
@@ -193,11 +209,11 @@ func (d *DB) Flush(ctx context.Context) error {
 	return nil
 }
 
-func (d *DB) Close() error {
+func (d *dbImpl) Close() error {
 	return nil
 }
 
-func (d *DB) Iterate(ctx context.Context, cb func(ctx context.Context, hash, hashset string, data *manifest.Stream) error) error {
+func (d *dbImpl) Iterate(ctx context.Context, cb func(ctx context.Context, hash, hashset string, data *manifest.Stream) error) error {
 	for hash, data := range d.existing {
 		err := cb(ctx, hash, d.source[hash], data)
 		if err != nil {

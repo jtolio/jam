@@ -32,11 +32,11 @@ type Session struct {
 	backend backends.Backend
 	paths   *pathdb.DB
 	blobs   *blobs.Store
-	hashes  *hashdb.DB
+	hashes  hashdb.DB
 	pending map[string]bool
 }
 
-func newSession(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Store, hashes *hashdb.DB) *Session {
+func newSession(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Store, hashes hashdb.DB) *Session {
 	return &Session{
 		backend: backend,
 		paths:   paths,

@@ -7,7 +7,7 @@ import (
 	"github.com/jtolio/jam/utils"
 )
 
-func (d *DB) Coalesce(ctx context.Context) error {
+func (d *dbImpl) Coalesce(ctx context.Context) error {
 	// TODO: seems silly to write out a small hashset only to delete it
 	err := d.Flush(ctx)
 	if err != nil {
@@ -37,7 +37,7 @@ func (d *DB) Coalesce(ctx context.Context) error {
 	return nil
 }
 
-func (d *DB) Split(ctx context.Context) error {
+func (d *dbImpl) Split(ctx context.Context) error {
 	// TODO: seems silly to write out a small hashset only to delete it
 	err := d.Flush(ctx)
 	if err != nil {
