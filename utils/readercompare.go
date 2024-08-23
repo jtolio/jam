@@ -60,8 +60,10 @@ func (rc *readerComparer) Read(p []byte) (n int, err error) {
 	}
 
 	for i := 1; i < len(rc.readers); i++ {
-		if len(rc.buffers[i]) < len(p) {
+		if cap(rc.buffers[i]) < len(p) {
 			rc.buffers[i] = make([]byte, len(p))
+		} else {
+			rc.buffers[i] = rc.buffers[i][:len(p)]
 		}
 	}
 
