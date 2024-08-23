@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"strings"
 
@@ -98,7 +97,7 @@ func (b *Backend) Get(ctx context.Context, path string, offset, length int64) (i
 
 func (b *Backend) Put(ctx context.Context, path string, data io.Reader) error {
 	// ugh, probably should spool to disk? this sucks, s3
-	seekableData, err := ioutil.ReadAll(data)
+	seekableData, err := io.ReadAll(data)
 	if err != nil {
 		return Error.Wrap(err)
 	}

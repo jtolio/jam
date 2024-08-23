@@ -3,7 +3,6 @@ package hashdb
 import (
 	"context"
 	"crypto/sha256"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"strings"
@@ -23,7 +22,7 @@ func extendHash(hash string) string {
 }
 
 func TestHashDB(t *testing.T) {
-	td, err := ioutil.TempDir("", "hashdbtest")
+	td, err := os.MkdirTemp("", "hashdbtest")
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, os.RemoveAll(td))

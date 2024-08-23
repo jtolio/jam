@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"io"
-	"io/ioutil"
 	"testing"
 	"testing/iotest"
 
@@ -31,9 +30,9 @@ func TestReaderBuf(t *testing.T) {
 
 func testReaderBuf(t *testing.T, amount int, wrappers func(io.Reader) io.Reader) {
 	expected := randData(t, amount)
-	rb := NewReaderBuf(ioutil.NopCloser(wrappers(bytes.NewReader(expected))))
+	rb := NewReaderBuf(io.NopCloser(wrappers(bytes.NewReader(expected))))
 	defer rb.Close()
-	actual, err := ioutil.ReadAll(rb)
+	actual, err := io.ReadAll(rb)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(expected, actual))
 }

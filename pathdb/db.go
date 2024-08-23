@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"io"
-	"io/ioutil"
 	"reflect"
 	"regexp"
 	"strings"
@@ -321,7 +320,7 @@ func (db *DB) SerializeTo(ctx context.Context, destinationPath string) error {
 		return err
 	}
 
-	return db.backend.Put(ctx, destinationPath, ioutil.NopCloser(io.MultiReader(
+	return db.backend.Put(ctx, destinationPath, io.NopCloser(io.MultiReader(
 		bytes.NewReader([]byte(versionHeader)),
 		utils.NewFramingReader(&out))))
 }

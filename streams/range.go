@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"github.com/jtolio/jam/backends"
 	"github.com/jtolio/jam/manifest"
@@ -27,7 +26,7 @@ func OpenRange(ctx context.Context, backend backends.Backend, r *manifest.Range,
 		return nil, fmt.Errorf("invalid offset")
 	}
 	if offset == r.Length {
-		return ioutil.NopCloser(bytes.NewReader(nil)), nil
+		return io.NopCloser(bytes.NewReader(nil)), nil
 	}
 	rc, err := backend.Get(ctx, BlobPath(r.Blob()), r.Offset+offset, r.Length-offset)
 	if err != nil {

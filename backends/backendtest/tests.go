@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"io"
-	"io/ioutil"
 	"reflect"
 	"sort"
 	"strings"
@@ -56,7 +55,7 @@ func (t *suite) TestGetPutListDelete() {
 	require.True(t.T, rv[0] == "hello/there")
 	rc, err := t.b.Get(ctx, "hello/there", 0, -1)
 	require.NoError(t.T, err)
-	data, err := ioutil.ReadAll(io.LimitReader(rc, int64(len([]byte(data1)))))
+	data, err := io.ReadAll(io.LimitReader(rc, int64(len([]byte(data1)))))
 	require.NoError(t.T, err)
 	require.True(t.T, bytes.Equal(data, []byte(data1)))
 	require.NoError(t.T, rc.Close())
@@ -68,7 +67,7 @@ func (t *suite) TestGetPutListDelete() {
 	require.True(t.T, rv[0] == "hi/there")
 	rc, err = t.b.Get(ctx, "hi/there", 0, -1)
 	require.NoError(t.T, err)
-	data, err = ioutil.ReadAll(io.LimitReader(rc, int64(len([]byte(data2)))))
+	data, err = io.ReadAll(io.LimitReader(rc, int64(len([]byte(data2)))))
 	require.NoError(t.T, err)
 	require.True(t.T, bytes.Equal(data, []byte(data2)))
 	require.NoError(t.T, rc.Close())
@@ -89,7 +88,7 @@ func (t *suite) TestOffset() {
 				t.T.Logf("offset %d, length %d", i+j, k)
 				rc, err := t.b.Get(ctx, "testfile", int64(i+j), int64(k))
 				require.NoError(t.T, err)
-				testdata, err := ioutil.ReadAll(io.LimitReader(rc, int64(k)))
+				testdata, err := io.ReadAll(io.LimitReader(rc, int64(k)))
 				require.NoError(t.T, err)
 				require.NoError(t.T, rc.Close())
 				require.True(t.T, bytes.Equal(data[i+j:i+j+k], testdata))
@@ -239,7 +238,7 @@ func (t *suite) TestPutOverwrite() {
 		require.True(t.T, rv[0] == "hello/there")
 		rc, err := t.b.Get(ctx, "hello/there", 0, -1)
 		require.NoError(t.T, err)
-		data, err := ioutil.ReadAll(io.LimitReader(rc, int64(len([]byte(data1)))))
+		data, err := io.ReadAll(io.LimitReader(rc, int64(len([]byte(data1)))))
 		require.NoError(t.T, err)
 		require.True(t.T, bytes.Equal(data, []byte(data1)))
 		require.NoError(t.T, rc.Close())

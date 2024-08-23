@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sync"
 
 	"github.com/zeebo/errs"
@@ -25,7 +24,7 @@ type readerComparer struct {
 // any Reader returns data that doesn't match the others.
 func ReaderCompare(readers ...io.ReadCloser) io.ReadCloser {
 	if len(readers) <= 0 {
-		return ioutil.NopCloser(bytes.NewReader(nil))
+		return io.NopCloser(bytes.NewReader(nil))
 	}
 	if len(readers) == 1 {
 		return readers[0]

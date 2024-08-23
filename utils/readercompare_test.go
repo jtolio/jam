@@ -3,7 +3,6 @@ package utils
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"testing"
 	"testing/iotest"
 
@@ -24,10 +23,10 @@ func TestReaderCompareHappy(t *testing.T) {
 func testReaderCompareHappy(t *testing.T, amount int, wrappers func(io.Reader) io.Reader) {
 	expected := randData(t, amount)
 
-	rc := ReaderCompare(ioutil.NopCloser(bytes.NewReader(expected)),
-		ioutil.NopCloser(wrappers(bytes.NewReader(expected))))
+	rc := ReaderCompare(io.NopCloser(bytes.NewReader(expected)),
+		io.NopCloser(wrappers(bytes.NewReader(expected))))
 	defer rc.Close()
-	actual, err := ioutil.ReadAll(rc)
+	actual, err := io.ReadAll(rc)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(expected, actual))
 }
@@ -35,20 +34,20 @@ func testReaderCompareHappy(t *testing.T, amount int, wrappers func(io.Reader) i
 func TestReaderCompareDifferentLengths(t *testing.T) {
 	expected := randData(t, 1024*1024)
 
-	rc := ReaderCompare(ioutil.NopCloser(bytes.NewReader(expected)),
-		ioutil.NopCloser(bytes.NewReader(expected[:512*1024])))
+	rc := ReaderCompare(io.NopCloser(bytes.NewReader(expected)),
+		io.NopCloser(bytes.NewReader(expected[:512*1024])))
 	defer rc.Close()
-	_, err := ioutil.ReadAll(rc)
+	_, err := io.ReadAll(rc)
 	require.True(t, ErrComparisonMismatch.Has(err))
 }
 
 func TestReaderCompareEarlyError(t *testing.T) {
 	expected := randData(t, 1024*1024)
 
-	rc := ReaderCompare(ioutil.NopCloser(bytes.NewReader(expected)),
-		ioutil.NopCloser(iotest.TimeoutReader(bytes.NewReader(expected))))
+	rc := ReaderCompare(io.NopCloser(bytes.NewReader(expected)),
+		io.NopCloser(iotest.TimeoutReader(bytes.NewReader(expected))))
 	defer rc.Close()
-	_, err := ioutil.ReadAll(rc)
+	_, err := io.ReadAll(rc)
 	require.True(t, ErrComparisonMismatch.Has(err))
 }
 
@@ -67,10 +66,10 @@ func testReaderCompareDifferentBytes(t *testing.T, differ bool) {
 		copy(data2[512*1024:], data1[512*1024:])
 	}
 
-	rc := ReaderCompare(ioutil.NopCloser(bytes.NewReader(data1)),
-		ioutil.NopCloser(bytes.NewReader(data2)))
+	rc := ReaderCompare(io.NopCloser(bytes.NewReader(data1)),
+		io.NopCloser(bytes.NewReader(data2)))
 	defer rc.Close()
-	actual, err := ioutil.ReadAll(rc)
+	actual, err := io.ReadAll(rc)
 	if differ {
 		require.True(t, ErrComparisonMismatch.Has(err))
 	} else {

@@ -3,7 +3,6 @@ package fs
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/url"
 	"os"
@@ -79,7 +78,7 @@ func (fs *FS) Put(ctx context.Context, path string, data io.Reader) (err error) 
 	}
 
 	dir, file := filepath.Split(localpath)
-	fh, err := ioutil.TempFile(dir, "_"+file)
+	fh, err := os.CreateTemp(dir, "_"+file)
 	if err != nil {
 		return errs.Wrap(err)
 	}

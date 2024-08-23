@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 
 	"github.com/jtolio/jam/backends"
 )
@@ -58,11 +57,11 @@ func (e *EncWrapper) Get(ctx context.Context, path string, offset, length int64)
 	// we had to rewind to get the enclosing block beginning. now fast forward to skip the
 	// initial block bytes.
 	if skip := offset - firstBlock*decodedBlockSize; skip > 0 {
-		_, err = io.CopyN(ioutil.Discard, r, skip)
+		_, err = io.CopyN(io.Discard, r, skip)
 		if err != nil {
 			fh.Close()
 			if err == io.EOF {
-				return ioutil.NopCloser(bytes.NewReader(nil)), nil
+				return io.NopCloser(bytes.NewReader(nil)), nil
 			}
 			return nil, err
 		}

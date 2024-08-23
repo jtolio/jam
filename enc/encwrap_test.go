@@ -2,7 +2,6 @@ package enc
 
 import (
 	"context"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"testing"
@@ -19,7 +18,7 @@ var (
 
 func TestFSBackend(t *testing.T) {
 	backendtest.RunSuite(t, func() (backends.Backend, func() error, error) {
-		td, err := ioutil.TempDir("", "fstest")
+		td, err := os.MkdirTemp("", "fstest")
 		if err != nil {
 			return nil, nil, err
 		}
