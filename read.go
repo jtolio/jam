@@ -62,6 +62,21 @@ func Mount(ctx context.Context, args []string) error {
 		return err
 	}
 
+	snapch := make(chan mount.FSSnap, 1)
+	defer close(snapch)
+	sess, err := mount.Mount(ctx, mount.AsyncFSSnap(ctx,
+		func(ctx context.Context) (mount.FSSnap, error) {
+			snap := <-snapch
+			if snap == nil {
+				return nil, fmt.Errorf("closed")
+			}
+			return snap, nil
+		}), mountpoint, *mountFlagReadahead)
+	if err != nil {
+		return err
+	}
+	defer sess.Close()
+
 	mgr, _, _, mgrClose, err := getManager(ctx)
 	if err != nil {
 		return err
@@ -73,12 +88,7 @@ func Mount(ctx context.Context, args []string) error {
 		return err
 	}
 	defer snap.Close()
-
-	sess, err := mount.Mount(ctx, snap, mountpoint, *mountFlagReadahead)
-	if err != nil {
-		return err
-	}
-	defer sess.Close()
+	snapch <- snap
 
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)

@@ -21,6 +21,13 @@ import (
 	"github.com/jtolio/jam/streams"
 )
 
+type FSSnap interface {
+	Open(ctx context.Context, path string) (*manifest.Metadata, *streams.Stream, error)
+	HasPrefix(ctx context.Context, prefix string) (exists bool, err error)
+	List(ctx context.Context, prefix string, recursive bool,
+		cb func(ctx context.Context, entry *session.ListEntry) error) error
+}
+
 type fuseHandle struct {
 	mtx    sync.Mutex
 	stream *streams.Stream
@@ -62,7 +69,7 @@ func (h *fuseHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) erro
 }
 
 type fuseNode struct {
-	snap *session.Snapshot
+	snap FSSnap
 	path string
 	meta *manifest.Metadata
 	data *streams.Stream
@@ -208,7 +215,7 @@ type Session struct {
 	fs     *fuseFS
 }
 
-func Mount(ctx context.Context, snap *session.Snapshot, target string, maxReadahead int) (
+func Mount(ctx context.Context, snap FSSnap, target string, maxReadahead int) (
 	*Session, error) {
 	conn, err := fuse.Mount(target,
 		fuse.FSName("jam"),

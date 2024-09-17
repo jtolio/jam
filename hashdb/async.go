@@ -4,8 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/jtolio/jam/manifest"
 	"github.com/zeebo/errs"
+
+	"github.com/jtolio/jam/manifest"
 )
 
 type asyncHashDB struct {
