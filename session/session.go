@@ -112,6 +112,8 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 	} else {
 		s.pending[hashStr] = true
 
+		utils.L(ctx).Normalf("storing data for %q", path)
+
 		// Put closes data so we don't have to call Close
 		err = s.blobs.Put(ctx,
 			newHashConfirmReader(data, sha256.New(), hash, fmt.Sprintf("file changed while reading: %q", path)),
