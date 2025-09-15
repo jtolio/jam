@@ -156,7 +156,9 @@ func (s *Manager) RevertTo(ctx context.Context, timestamp time.Time) (*Session, 
 	if err != nil {
 		return nil, err
 	}
-	return newSession(s.backend, db, s.blobs, s.hashes), nil
+	sess := newSession(s.backend, db, s.blobs, s.hashes)
+	sess.reverting = true
+	return sess, nil
 }
 
 func (s *Manager) DeleteSnapshot(ctx context.Context, timestamp time.Time) error {

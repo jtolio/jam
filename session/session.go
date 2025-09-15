@@ -29,11 +29,12 @@ type ReadSeekCloser interface {
 }
 
 type Session struct {
-	backend backends.Backend
-	paths   *pathdb.DB
-	blobs   *blobs.Store
-	hashes  hashdb.DB
-	pending map[string]bool
+	backend   backends.Backend
+	paths     *pathdb.DB
+	blobs     *blobs.Store
+	hashes    hashdb.DB
+	pending   map[string]bool
+	reverting bool
 }
 
 func newSession(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Store, hashes hashdb.DB) *Session {
@@ -194,7 +195,7 @@ func (s *Session) Commit(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if !s.paths.Changed() {
+	if !s.paths.Changed() && !s.reverting {
 		utils.L(ctx).Normalf("no changes detected, skipping new manifest")
 		return nil
 	}
