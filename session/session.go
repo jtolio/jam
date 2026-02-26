@@ -35,6 +35,11 @@ type Session struct {
 	hashes    hashdb.DB
 	pending   map[string]bool
 	reverting bool
+	dryRun    bool
+}
+
+func (s *Session) SetDryRun(v bool) {
+	s.dryRun = v
 }
 
 func newSession(backend backends.Backend, paths *pathdb.DB, blobStore *blobs.Store, hashes hashdb.DB) *Session {
@@ -112,6 +117,15 @@ func (s *Session) PutFile(ctx context.Context, path string, creation, modified t
 
 	} else {
 		s.pending[hashStr] = true
+
+		if s.dryRun {
+			utils.L(ctx).Normalf("would store data for %q", path)
+			err = data.Close()
+			if err != nil {
+				return pathdb.PutStateUnchanged, err
+			}
+			return s.paths.Put(ctx, path, content)
+		}
 
 		utils.L(ctx).Normalf("storing data for %q", path)
 
@@ -191,6 +205,9 @@ func (s *Session) Flush(ctx context.Context) error {
 }
 
 func (s *Session) Commit(ctx context.Context) (err error) {
+	if s.dryRun {
+		return nil
+	}
 	err = s.Flush(ctx)
 	if err != nil {
 		return err

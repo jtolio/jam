@@ -22,6 +22,8 @@ var (
 		"if set, remove and replace anything with the given prefix")
 	storeFlagsExclude = storeFlags.String("exclude", "",
 		"if set, a comma-separated list of full path prefixes to ignore locally")
+	storeFlagDryRun = storeFlags.Bool("n", false,
+		"if set, show what would be stored without writing anything")
 
 	rmFlags      = flag.NewFlagSet("", flag.ExitOnError)
 	rmFlagRegexp = rmFlags.Bool("r", false,
@@ -73,6 +75,10 @@ func Store(ctx context.Context, args []string) error {
 		return err
 	}
 	defer sess.Close()
+
+	if *storeFlagDryRun {
+		sess.SetDryRun(true)
+	}
 
 	pathsToRemove := map[string]struct{}{}
 	if *storeFlagReplace {
@@ -179,8 +185,12 @@ func Store(ctx context.Context, args []string) error {
 		}
 	}
 
-	utils.L(ctx).Normalf("added %d new paths, changed %d paths, removed %d paths, and left %d paths alone",
-		addedPaths, changedPaths, len(pathsToRemove), unchangedPaths)
+	prefix := ""
+	if *storeFlagDryRun {
+		prefix = "(dry run) "
+	}
+	utils.L(ctx).Normalf("%sadded %d new paths, changed %d paths, removed %d paths, and left %d paths alone",
+		prefix, addedPaths, changedPaths, len(pathsToRemove), unchangedPaths)
 
 	return sess.Commit(ctx)
 }
