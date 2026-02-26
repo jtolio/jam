@@ -14,6 +14,7 @@ import (
 
 	"github.com/jtolio/jam/mount"
 	"github.com/jtolio/jam/session"
+	"github.com/jtolio/jam/utils"
 	"github.com/jtolio/jam/webdav"
 )
 
@@ -77,12 +78,14 @@ func Mount(ctx context.Context, args []string) error {
 	}
 	defer sess.Close()
 
+	utils.L(ctx).Debugf("getting manager")
 	mgr, _, _, mgrClose, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 	defer mgrClose()
 
+	utils.L(ctx).Debugf("getting read snapshot")
 	snap, ts, err := getReadSnapshot(ctx, mgr, *mountFlagSnapshot)
 	if err != nil {
 		return err

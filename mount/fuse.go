@@ -19,6 +19,7 @@ import (
 	"github.com/jtolio/jam/manifest"
 	"github.com/jtolio/jam/session"
 	"github.com/jtolio/jam/streams"
+	"github.com/jtolio/jam/utils"
 )
 
 type FSSnap interface {
@@ -87,6 +88,7 @@ func fullpath(parent, name string) string {
 }
 
 func (n *fuseNode) Lookup(ctx context.Context, name string) (fs.Node, error) {
+	utils.L(ctx).Debugf("lookup %q %q", n.path, name)
 	child := fullpath(n.path, name)
 	meta, data, err := n.snap.Open(ctx, child)
 	if err != nil {
@@ -121,6 +123,7 @@ var (
 )
 
 func (n *fuseNode) Attr(ctx context.Context, out *fuse.Attr) error {
+	utils.L(ctx).Debugf("attr %q", n.path)
 	out.Uid = uid
 	out.Gid = gid
 	if n.meta == nil {
@@ -163,6 +166,7 @@ type fuseDir struct {
 var _ fs.HandleReadDirAller = (*fuseDir)(nil)
 
 func (d *fuseDir) ReadDirAll(ctx context.Context) (entries []fuse.Dirent, err error) {
+	utils.L(ctx).Debugf("readdirall %q", d.n.path)
 	prefix := fullpath(d.n.path, "")
 	err = d.n.snap.List(ctx, prefix, false,
 		func(ctx context.Context, entry *session.ListEntry) error {
@@ -188,6 +192,7 @@ func (d *fuseDir) ReadDirAll(ctx context.Context) (entries []fuse.Dirent, err er
 
 func (n *fuseNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (
 	fs.Handle, error) {
+	utils.L(ctx).Debugf("open %q", n.path)
 	if !req.Flags.IsReadOnly() {
 		return nil, fuse.Errno(syscall.EACCES)
 	}
@@ -199,6 +204,7 @@ func (n *fuseNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.O
 }
 
 func (n *fuseNode) Readlink(ctx context.Context, req *fuse.ReadlinkRequest) (string, error) {
+	utils.L(ctx).Debugf("readlink %q", n.path)
 	return string(n.meta.LinkTarget), nil
 }
 
